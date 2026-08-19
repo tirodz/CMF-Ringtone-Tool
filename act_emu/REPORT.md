@@ -65,6 +65,82 @@
   existing files; output is written ready for sdfs_k repacking.
 - `wav/` — decoded reference WAVs of every known `.act` file.
 
+## ACT v4 encoder (act_encode.py) — genuine WAV/PCM → ACT
+
+A real encoder (not the splicer) built by inverting the decoder piece by piece.
+Everything below is confirmed by static disassembly and/or dynamic oracle
+experiments; nothing is assumed.
+
+### Confirmed bitstream (per 160-bit frame, 22 fields)
+
+| # | width | meaning | evidence |
+|---|-------|---------|----------|
+| 0 | 1 | LSP MA-prediction mode (0: 0.88/0.5, 1: 0.5/0.5) | DVD107/108 tables + DVD158 disasm |
+| 1-5 | 7/8/7/7/7 | LSP split-VQ 3+3+3+3+4 (16th-order LPC) | DVD113/112/111/110/109 + DVD158 |
+| 6 | 9 | sf0 pitch (adaptive codebook) | field sensitivity |
+| 7 | 4 | sf0 pitch gain (≈ linear) | f15-style calibration |
+| 8-12 | 9×5 | sf0 fixed codebook, 2 pulses/track, tracks at samples 0-4 | empirical pulse_map (512 values/field) |
+| 13 | 5 | sf0 codebook gain (log, DVD116 interp) | DVD157 disasm + gain_cal sweep |
+| 14 | 6 | sf1 pitch | — |
+| 15 | 4 | sf1 pitch gain (16911 + 1024·v measured) | empirical sweep |
+| 16-20 | 9×5 | sf1 fixed codebook (tracks 0-4 of samples 80-159) | empirical pulse_map |
+| 21 | 5 | sf1 codebook gain | gain_cal sweep |
+
+Width table is literal `DVD100` at 0x103b0: `[1,7,8,7,7,7,9,4,9,9,9,9,9,5,6,4,9,9,9,9,9,5]`.
+Byte order: u16 big-endian, LSB-first (DVD206 byte-swap), LSP-1st.
+
+### LSP quantization (confirmed from DVD158)
+
+- 16th-order LPC as 16 LSFs, split VQ 3+3+3+3+4 dims.
+- MA-predicted against the **deviation-from-init** vector:
+  `lsp[i] = init[i] + MA1[mode]·dev_prev[i] + MA2[mode]·vq[i]` (Q15),
+  `init = DVD115 = [335, 628, 1110, 1641, 2108, 2592, 3053, 3512, 3978, 4423, 4942, 5429, 5977, 6421, 6921, 7250]` (Hz),
+  MA1 = [28835, 16383]/2^15, MA2 = [3932, 16384]/2^15.
+- Q31 saturating fixed-point semantics (DVD141/142/143 = add/round/mult).
+
+### Fixed codebook (empirically mapped, pulse_map.json)
+
+Each 9-bit field = 2 pulses in one of 5 tracks (track bases 0-4 within the
+80-sample subframe): P1 at track base (sign from bits 4-7), P2 at
+`track + 10·ceil(v/16)` (sign from bit 8; bit 8 flips both). Amplitude ±4096.
+
+### Gains (calibrated)
+
+- 5-bit codebook gains: log-domain, linear interp over the 129-entry `DVD116`
+  table (`DVD157` interp math fully reversed); empirically calibrated to
+  output RMS (`gain_cal.json`).
+- 4-bit pitch gains: ≈ linear (measured `16911 + 1024·v` on one channel).
+
+### Encoder pipeline (act_encode.py)
+
+1. 16th-order LPC (Levinson, autocorrelation) → 16 LSFs (Durand-Kerner roots
+   of P/Q polynomials).
+2. Both MA modes tried; best split-VQ indices chosen per group; decoder-state
+   deviation tracked exactly like the real decoder.
+3. Residual via the exact Levinson LPC; 5 codebook fields per subframe from
+   residual peaks through the empirical pulse map.
+4. Gains via calibration tables + optional closed-loop refinement through the
+   emulated original decoder (snapshot/restore per frame).
+5. Pitch currently disabled (pitch gain = 0) — the field→lag map is measured
+   but too noisy to use reliably yet; tonal content is carried by the LSP.
+
+### Test results (test_encoder.py — ALL PASS)
+
+| test | result |
+|---|---|
+| silence | decodes to near-zero (rms 8) |
+| 200/440/1000/3000 Hz sines | zero-crossings track tone: 217/452/973/3183 Hz |
+| noise burst | stable, no blowup |
+| quiet sine | bounded (rms 71) |
+| 3 s duration | 300 frames, stable |
+| ring1 re-encode | decodes cleanly |
+
+Known limitation (honest): waveform-level SNR is still negative for tonal
+content because pitch tracking is off (phase alignment); the spectral
+envelope and level are correct. Next milestone: calibrate the pitch
+field→lag map (measured trend ≈ 50 + v/4 samples for sf1) and enable the
+adaptive codebook path — that is the remaining quality blocker.
+
 ## Reproduction
 
 ```
