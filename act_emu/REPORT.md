@@ -138,8 +138,41 @@ Each 9-bit field = 2 pulses in one of 5 tracks (track bases 0-4 within the
 Known limitation (honest): waveform-level SNR is still negative for tonal
 content because pitch tracking is off (phase alignment); the spectral
 envelope and level are correct. Next milestone: calibrate the pitch
-field→lag map (measured trend ≈ 50 + v/4 samples for sf1) and enable the
-adaptive codebook path — that is the remaining quality blocker.
+field→lag map and enable the adaptive codebook path — that is the remaining
+quality blocker.
+
+### What remains genuinely unknown (the pitch/adaptive codebook)
+
+Documented but NOT resolved in this session (honest status, no approximations
+shipped as fact):
+
+- **f6 (9-bit) / f14 (6-bit) field → lag mapping**: not pinned down. Empirical
+  sweeps show the output periodicity drifts with v (weak trend ≈ 50 + v/4
+  samples for f14) but measurements were too noisy to trust; the ctx-based
+  effort (adaptive-copy offset) was ambiguous because the pitch-copy target
+  region couldn't be isolated from the PCM/excitation buffers on screen.
+- **Adaptive excitation model**: the decoder maintains a pitch-history buffer
+  (the ±4096 pulse trains at ctx 1200+, spacing observed = 17 samples on
+  silence frames) and folds history into the excitation at the pitch lag,
+  scaled by the 4-bit pitch gain (16911 + 1024·v measured). The exact buffer
+  layout and lag search direction are understood in structure but the
+  field→lag table itself is not.
+- **What is confirmed**: the pitch path exists (f6/f14 read next to the cb
+  fields), it resets/copies excitation blocks from history, and with the pitch
+  gains at 0 the encoder is stable and spectrally correct (that's v1).
+
+### What to try next (concrete plan, not yet done)
+
+1. Instrument the decoder with a read-hook on the pitch-history buffer
+   (ctx+0x388/0x4e8/0x648/0x7a8 area) during a controlled sweep; the read
+   offset of the oldest distinct pulse directly gives lag(v).
+2. Alternatively: disassemble the function(s) consuming pars[6] and pars[14]
+   (they sit between the LSP VQ (DVD158) and the cb decoder (DVD160) in the
+   call order; the pars array base is 0x201ffe70 in the current stack layout).
+3. Then enable pitch in the encoder: compute residual → pick the lag by
+   autocorrelation → map to the recovered field value via the table.
+
+## Reproduction
 
 ## Reproduction
 
