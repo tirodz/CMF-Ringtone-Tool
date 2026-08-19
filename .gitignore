@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+original*.bin
+modified_aota.bin
