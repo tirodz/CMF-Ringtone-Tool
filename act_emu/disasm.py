@@ -2,7 +2,8 @@
 import struct, sys
 from capstone import *
 
-ex = open('/workspace/project/cmf-watch-firmware/bins/extracted.bin', 'rb').read()
+import os
+ex = open(os.environ.get('CMF_EXTRACTED', 'extracted.bin'), 'rb').read()
 BASE = 0x10000000; APP = 0x800
 def va_to_off(va): return va - BASE + APP
 md = Cs(CS_ARCH_ARM, CS_MODE_THUMB)

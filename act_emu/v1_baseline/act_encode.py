@@ -14,7 +14,7 @@ Structure (all confirmed by reversing the original decoder):
     [16..20]45 bits: sf1 fixed codebook
     [21]    5 bits : sf1 gain
 """
-import struct, math, sys
+import struct, math, sys, os
 import tables
 from bits import pack_fields, unpack_fields
 
@@ -275,7 +275,7 @@ def load_gain_cal():
     if GAIN_CAL is None:
         import json
         try:
-            GAIN_CAL = json.load(open('/workspace/project/act_emu/gain_cal.json'))
+            GAIN_CAL = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gain_cal.json')))
         except OSError:
             GAIN_CAL = None
     return GAIN_CAL

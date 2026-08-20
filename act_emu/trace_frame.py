@@ -1,13 +1,14 @@
+import os
 import struct, json, sys
 from unicorn import *
 from unicorn.arm_const import *
-IMG = json.load(open('/workspace/project/act_emu/linked.json'))
+IMG = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'linked.json')))
 BASE = IMG['base']; CODE = bytes.fromhex(IMG['image']); SYM = IMG['symbols']
-sys.path.insert(0, '/workspace/project/act_emu')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from emu_act import Stream, RAM_BASE, RAM_SIZE, STACK_TOP
 
 k = bytes([0x57, 0x2a])
-d0 = open('/workspace/project/cmf-watch-firmware/sdfs_extract/ring1.act','rb').read()
+d0 = open(os.environ.get('CMF_RING1', 'ring1.act'), 'rb').read()
 data = bytes(b ^ k[i%2] for i, b in enumerate(d0[:400]))  # first ~20 frames
 
 mu = Uc(UC_ARCH_ARM, UC_MODE_THUMB)

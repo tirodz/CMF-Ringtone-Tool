@@ -85,7 +85,7 @@ def main():
     target = None
     try:
         k = bytes([0x57, 0x2a])
-        d0 = open('/workspace/project/cmf-watch-firmware/sdfs_extract/ring1.act', 'rb').read()
+        d0 = open(os.environ.get('CMF_RING1', 'ring1.act'), 'rb').read()
         raw = bytes(b ^ k[i % 2] for i, b in enumerate(d0))
         od = OracleDecoder()
         frames = [raw[2 + 20 * i:2 + 20 * (i + 1)] for i in range(40)]

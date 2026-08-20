@@ -4,11 +4,11 @@
 Feeds a candidate .act stream through act_decoder_open + act_frame_decode,
 logging every stream read (offset/len) and every decoded PCM frame.
 """
-import json, struct, sys
+import json, struct, sys, os
 from unicorn import *
 from unicorn.arm_const import *
 
-IMG = json.load(open('/tmp/actdec/linked.json'))
+IMG = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'linked.json')))
 BASE = IMG['base']
 CODE = bytes.fromhex(IMG['image'])
 SYM = IMG['symbols']

@@ -3,7 +3,8 @@ wewear/epo region (using TRUE string starts), then map back to ldr/movw sites.""
 import struct, re
 from capstone import *
 
-ex = open('/workspace/project/cmf-watch-firmware/bins/extracted.bin', 'rb').read()
+import os
+ex = open(os.environ.get('CMF_EXTRACTED', 'extracted.bin'), 'rb').read()
 APP = 0x800; BASE = 0x10100000; CODE_END = 0x255a00
 def off_to_va(off): return off - APP + BASE
 

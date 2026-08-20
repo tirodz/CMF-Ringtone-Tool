@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Full ACT v2 decode loop under Unicorn; tests candidate streams."""
-import struct, json, sys
+import struct, json, sys, os
 from unicorn import *
 from unicorn.arm_const import *
 
-IMG = json.load(open('/tmp/actdec/linked.json'))
+IMG = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'linked.json')))
 BASE = IMG['base']; CODE = bytes.fromhex(IMG['image']); SYM = IMG['symbols']
 RAM_BASE = 0x20000000
 RAM_SIZE = 0x200000
@@ -123,7 +123,7 @@ if __name__ == '__main__':
         print(f)
     if res.get('pcm'):
         import wave
-        with wave.open('/tmp/decoded.wav', 'wb') as w:
+        with wave.open('decoded.wav', 'wb') as w:
             w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
             w.writeframes(res['pcm'])
-        print('wrote /tmp/decoded.wav', len(res['pcm']), 'bytes')
+        print('wrote decoded.wav', len(res['pcm']), 'bytes')

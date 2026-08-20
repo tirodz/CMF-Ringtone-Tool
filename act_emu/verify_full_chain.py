@@ -1,10 +1,15 @@
-import sys, wave, math
+"""verify_full_chain.py - end-to-end verification of a rebuilt AOTA image.
+
+Usage: python3 verify_full_chain.py <original.bin> <modified.bin> <replacement.act>
+"""
+import os, sys, wave, math
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from decode_test import run
 import fwmod
 
-orig_path = '/workspace/project/cmf-watch-firmware/bins/original 1724161837605-90.bin'
-mod_path = '/tmp/modified_aota.bin'
-replacement = '/tmp/ring1_custom.act'
+if len(sys.argv) < 4:
+    sys.exit(__doc__)
+orig_path, mod_path, replacement = sys.argv[1:4]
 
 orig = fwmod.Aota(open(orig_path, 'rb').read())
 mod = fwmod.Aota(open(mod_path, 'rb').read())
@@ -32,7 +37,7 @@ from act_decode import deobfuscate
 res = run(deobfuscate(stream), collect_pcm=True)
 assert res['ok'] and not res['err']
 print('3. decoded mod ring1:', res['nframes'], 'frames,', len(res['pcm']), 'bytes PCM')
-with wave.open('/tmp/mod_ring1.wav', 'wb') as w:
+with wave.open('mod_ring1.wav', 'wb') as w:
     w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
     w.writeframes(res['pcm'])
 

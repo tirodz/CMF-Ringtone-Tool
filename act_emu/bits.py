@@ -63,7 +63,8 @@ FIELD_NAMES = [
 
 if __name__ == '__main__':
     k = bytes([0x57, 0x2a])
-    d = open('/workspace/project/cmf-watch-firmware/sdfs_extract/ring1.act', 'rb').read()
+    import os
+    d = open(os.environ.get('CMF_RING1', 'ring1.act'), 'rb').read()
     raw = bytes(b ^ k[i % 2] for i, b in enumerate(d))
     for fi in [0, 1, 2, 9, 10, 30, 100, 300, 500, 776]:
         fr = raw[2 + 20 * fi:2 + 20 * (fi + 1)]
