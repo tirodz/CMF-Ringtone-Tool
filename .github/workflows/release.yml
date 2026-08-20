@@ -1,4 +1,4 @@
-name: Ship the Windows App
+name: Release Build
 
 # Builds the Tauri desktop app into a ready-to-run Windows .exe.
 #
