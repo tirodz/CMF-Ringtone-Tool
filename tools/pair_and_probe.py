@@ -101,9 +101,11 @@ class Probe:
             print('FAIL (no response)')
             return
         # reply payload: random2(16) + signed2(32) (plaintext reply)
-        pl = resp[11:-4]
+        i = resp.find(bytes.fromhex('ffffffff'))
+        pl = resp[11:-4] if len(resp) > 11 else resp
+        print(f'dbg raw-reply {len(resp)}B: {resp.hex()[:80]}')
         if len(pl) < 48:
-            print('FAIL (short reply)')
+            print(f'FAIL (short reply, {len(pl)}B)')
             return
         random2, signed2 = pl[:16], pl[16:48]
         ok = hashlib.sha256(random2 + app_secret).digest() == signed2
