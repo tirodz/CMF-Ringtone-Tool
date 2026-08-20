@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=20&duration=2500&pause=800&color=FF5500&center=true&vCenter=true&width=700&lines=Decode+.act+ringtones+%E2%86%92+WAV;Encode+WAV+%E2%86%92+ACT+v4;Splice+stock+tones+into+your+own;Beam+it+to+the+watch+over+BLE+%F0%9F%93%A1" alt="Decode .act ringtones → WAV • Encode WAV → ACT v4 • Splice stock tones • Beam it to the watch over BLE"/>
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=20&duration=2500&pause=800&color=FF5500&center=true&vCenter=true&width=700&lines=Decode+.act+ringtones+%E2%86%92+WAV;Encode+MP3+%2F+OGG+%2F+WAV+%E2%86%92+ACT+v4;Splice+stock+tones+into+your+own;Beam+it+to+the+watch+over+BLE+%F0%9F%93%A1" alt="Decode .act ringtones → WAV • Encode MP3/OGG/WAV → ACT v4 • Splice stock tones • Beam it to the watch over BLE"/>
 </p>
 
 <p align="center">
@@ -50,7 +50,7 @@ The CMF Watch Pro 2 (Nothing's budget-friendly smartwatch) comes with a handful 
 So this project did the fun thing: it took the format apart, byte by byte, until it gave up its secrets. The result is a small, honest toolchain that can:
 
 - 🔓 **Decode** any `.act` ringtone back into a normal WAV you can listen to
-- 🎚️ **Encode** your own WAV into a real `.act` file (work in progress, but real)
+- 🎚️ **Encode** your own audio (WAV today, MP3/OGG/FLAC support in progress) into a real `.act` file
 - ✂️ **Splice** existing tones together into new combinations
 - 📦 **Repack** the watch's firmware image with a replaced ringtone
 - 📡 **Install** it over Bluetooth — no disassembly, no debug cables (currently being validated)
@@ -93,7 +93,7 @@ Each 160-bit frame packs 22 fields: LSP spectral-envelope indices (split-VQ), pi
 | Tool | What it does | Status |
 |---|---|---|
 | `act_emu/act_decode.py` | `.act` → WAV, using the *original* Actions decoder running under Unicorn CPU emulation. Auto-detects the XOR layer. | ✅ All 22 known files decode 100% |
-| `act_emu/act_encode.py` | WAV/PCM → ACT v4 encoder, built by inverting the decoder field by field | 🚧 Works, quality improving (see below) |
+| `act_emu/act_encode.py` | Audio → ACT v4 encoder, built by inverting the decoder field by field. WAV/PCM input today; **MP3/OGG/FLAC and friends in progress** (via format conversion) | 🚧 Works, quality improving (see below) |
 | `act_emu/act_splice.py` | Builds valid custom `.act` files by splicing segments of stock tones | ✅ Verified end-to-end |
 | `act_emu/fwmod.py` | Extract / replace / rebuild the `sdfs_k` partition and AOTA firmware container with valid CRC32s | ✅ Round-trip byte-for-byte verified |
 | `act_emu/cmf_shell.py` | BLE debug-shell client for the watch (read-only recon) | 🧪 Pending first on-device run |
@@ -158,10 +158,16 @@ pip install unicorn capstone bleak
 python3 act_emu/act_decode.py ring1.act ring1.wav
 ```
 
-**Encode your own WAV to ACT** 🎚️ (16 kHz, mono, 16-bit PCM)
+**Encode your own audio to ACT** 🎚️
 ```bash
+# WAV (16 kHz, mono, 16-bit PCM) goes straight in
+python3 act_emu/act_encode.py mysong.wav mysong.act
+
+# MP3 / OGG / FLAC / anything? Convert first (ffmpeg or any tool):
+ffmpeg -i mysong.mp3 -ar 16000 -ac 1 mysong.wav
 python3 act_emu/act_encode.py mysong.wav mysong.act
 ```
+Multi-format input is being wired in natively too — for now it's a one-line pre-convert.
 
 **Splice stock tones into a custom ringtone** ✂️
 ```bash
