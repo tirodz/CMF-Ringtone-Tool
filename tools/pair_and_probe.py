@@ -55,11 +55,22 @@ class Probe:
         self.buf.clear(); self.ev.clear()
         p = _pkt(cmd1, cmd2, payload, self.session)
         await self.c.write_gatt_char(UUID_CMD_WRITE, p)
-        try:
-            await asyncio.wait_for(self.ev.wait(), 3.0)
-        except asyncio.TimeoutError:
-            return None, label
-        return bytes(self.buf), label
+        # Accumulate notifications until the declared chunk length is met
+        # (the watch may fragment a single logical reply across notifications).
+        deadline = asyncio.get_event_loop().time() + 5.0
+        while True:
+            try:
+                await asyncio.wait_for(self.ev.wait(), 1.0)
+            except asyncio.TimeoutError:
+                pass
+            data = bytes(self.buf)
+            if len(data) >= 3:
+                want = 11 + int.from_bytes(data[1:3], 'big')
+                if len(data) >= want:
+                    return data[:want], label
+            if asyncio.get_event_loop().time() > deadline:
+                return (bytes(self.buf) if self.buf else None), label
+            self.ev.clear()
 
     async def shell(self, text):
         """shell-channel command (read-only channel; separate from command ch)."""
