@@ -69,8 +69,10 @@ class Probe:
                 if len(data) >= want:
                     return data[:want], label
             if asyncio.get_event_loop().time() > deadline:
-                return (bytes(self.buf) if self.buf else None), label
-            self.ev.clear()
+                # timeout: return what we have, but log the truncation
+                if data:
+                    print(f'dbg timeout with {len(data)}B: {data.hex()[:80]}')
+                return (data if data else None), label
 
     async def shell(self, text):
         """shell-channel command (read-only channel; separate from command ch)."""
