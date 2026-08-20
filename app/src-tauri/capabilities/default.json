@@ -1,0 +1,12 @@
+{
+  "identifier": "cmf-ringtone-tool",
+  "description": "Capabilities for the CMF Ringtone Tool main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "updater:default",
+    "shell:allow-open"
+  ]
+}

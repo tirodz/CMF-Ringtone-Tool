@@ -7,13 +7,15 @@
     "devUrl": "http://localhost:1420"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "CMF Ringtone Tool",
-        "resizable": true,
-        "width": 1020,
-        "height": 720,
-        "maximized": false
+        "resizable": false,
+        "width": 1040,
+        "height": 700,
+        "maximized": false,
+        "decorations": false
       }
     ],
     "security": {
@@ -29,5 +31,14 @@
       "icons/128x128@2x.png",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/tirodz/CMF-Ringtone-Tool/releases/latest/download/latest.json"
+      ],
+      "pubkey": "SIGNING_PUBKEY_PLACEHOLDER"
+    }
   }
 }
