@@ -1,0 +1,104 @@
+name: Release
+
+# Builds the Tauri desktop app into a ready-to-run Windows .exe.
+#
+# How to use once the source exists:
+#   1. Put the Tauri app in ./app (frontend + src-tauri/). If you choose a
+#      different folder, change TAURI_APP_DIR below.
+#   2. Tag a commit and push it:  git tag v1.0.0 && git push origin v1.0.0
+#      The workflow builds the app and attaches everything to a GitHub Release:
+#        - <app>.exe        portable, runs immediately (needs WebView2, built
+#                            into Win11 and most Win10 machines)
+#        - <app>-setup.exe  NSIS installer
+#      Both are also stored as workflow artifacts, so you can grab the .exe
+#      from the Actions run page without making a release.
+#   3. Alternatively run it manually from the Actions tab with a tag input.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.0). Created if missing."
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAURI_APP_DIR: app
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that the Tauri project exists
+        shell: pwsh
+        run: |
+          $conf = Join-Path $env:TAURI_APP_DIR "src-tauri/tauri.conf.json"
+          if (-not (Test-Path $conf)) {
+            Write-Error "No Tauri project at '$env:TAURI_APP_DIR' (expected $conf). Add your source, then retag."
+            exit 1
+          }
+
+      - uses: actions/setup-node@v4
+        if: hashFiles(format('{0}/package.json', env.TAURI_APP_DIR)) != ''
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        if: hashFiles(format('{0}/package.json', env.TAURI_APP_DIR)) != ''
+        working-directory: ${{ env.TAURI_APP_DIR }}
+        run: if (Test-Path package-lock.json) { npm ci } else { npm install }
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: ${{ env.TAURI_APP_DIR }}
+          tagName: ${{ inputs.tag }}
+          releaseName: "CMF Ringtone Tool ${{ github.ref_name }}"
+          args: "--bundles nsis"
+
+      - name: Collect portable exe(s)
+        id: collect
+        shell: pwsh
+        run: |
+          $dir = "$env:TAURI_APP_DIR/src-tauri/target/release"
+          $exes = Get-ChildItem $dir -File -Filter *.exe | Where-Object { $_.Name -notmatch 'uninstall' }
+          if (-not $exes) { Write-Error "No portable .exe in $dir"; exit 1 }
+          $exes | ForEach-Object { Write-Output "found: $($_.FullName)" }
+          "paths=$($exes.FullName -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Upload portable exe to release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          COLLECT_PATHS: ${{ steps.collect.outputs.paths }}
+        run: |
+          foreach ($p in ($env:COLLECT_PATHS -split ',')) {
+            gh release upload $env:TAG $p --clobber
+          }
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmf-ringtone-tool-exe
+          path: |
+            ${{ env.TAURI_APP_DIR }}/src-tauri/target/release/*.exe
+            ${{ env.TAURI_APP_DIR }}/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: warn
