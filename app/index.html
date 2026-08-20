@@ -4,418 +4,266 @@
 <meta charset="UTF-8" />
 <title>CMF Ringtone Tool</title>
 <style>
-  :root{
-    --bg:#121315; --panel:#181b1f; --panel2:#1e2227; --line:#282d34;
-    --text:#f2f3f5; --muted:#8a93a0; --orange:#ff5500; --orange-d:#e04d00;
-    --green:#3ddc84; --red:#ff5d5d;
-  }
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{height:100%;background:var(--bg);color:var(--text);overflow:hidden;user-select:none;
-    font-family:"Segoe UI",system-ui,sans-serif}
-
-  /* ---------- entrance animations ---------- */
-  @keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
-  @keyframes float-up{from{opacity:0;transform:translateY(28px) scale(.97)}to{opacity:1;transform:none}}
-  @keyframes toast-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
-  @keyframes toast-out{to{opacity:0;transform:translateY(10px)}}
-  @keyframes pulse-dot{0%,100%{box-shadow:0 0 0 0 rgba(61,220,132,.5)}70%{box-shadow:0 0 0 8px rgba(61,220,132,0)}}
-  @keyframes wobble{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.45)}}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-  @keyframes glow{0%,100%{box-shadow:0 0 12px rgba(255,85,0,.25)}50%{box-shadow:0 0 22px rgba(255,85,0,.4)}}
-  @keyframes slide-in-left{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
-  @keyframes card-hover-lift{from{transform:translateY(0)}to{transform:translateY(-2px)}}
-
-  .rise{animation:rise .55s cubic-bezier(.16,1,.3,1) both}
-  .rise-1{animation-delay:.05s}.rise-2{animation-delay:.1s}.rise-3{animation-delay:.15s}
-  .rise-4{animation-delay:.2s}.rise-5{animation-delay:.25s}.rise-6{animation-delay:.3s}
-  .float-up{animation:float-up .6s cubic-bezier(.16,1,.3,1) both}
-
-  /* ---------- titlebar ---------- */
-  #titlebar{display:flex;align-items:center;height:38px;padding:0 0 0 14px;background:var(--bg);
-    border-bottom:1px solid var(--line);-webkit-app-region:drag}
-  #titlebar .app-title{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);letter-spacing:.3px}
-  #titlebar .app-title svg{width:14px;height:14px}
-  #titlebar .btns{margin-left:auto;display:flex;-webkit-app-region:no-drag}
-  #titlebar .btns div{width:46px;height:38px;display:flex;align-items:center;justify-content:center;
-    color:var(--muted);cursor:pointer;transition:.15s;font-size:14px}
-  #titlebar .btns div:hover{background:var(--panel2);color:var(--text)}
-  #titlebar .btns div.close:hover{background:#e81123;color:#fff}
-
-  .app{display:grid;grid-template-columns:180px 1fr;height:calc(100vh - 38px);position:relative}
-
-  /* ---------- sidebar ---------- */
-  .sidebar{background:#0d0f12;border-right:1px solid var(--line);display:flex;flex-direction:column;
-    padding:24px 14px 12px;min-height:0}
-  .logo{font-size:26px;font-weight:800;letter-spacing:-.5px;padding:0 12px 28px;color:#fff}
-  .nav{display:flex;flex-direction:column;gap:3px;flex:1}
-  .nav a{color:var(--muted);text-decoration:none;padding:10px 14px;border-radius:9px;font-size:13.5px;
-    display:flex;align-items:center;gap:10px;position:relative;transition:.18s}
-  .nav a:hover{color:var(--text);background:rgba(255,255,255,.04)}
-  .nav a.active{color:var(--text);background:rgba(255,85,0,.1)}
-  .nav a.active::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;
-    background:var(--orange);border-radius:0 2px 2px 0}
-  .nav a svg{width:17px;height:17px;stroke:currentColor;flex-shrink:0;fill:none;stroke-width:2;
-    stroke-linecap:round;stroke-linejoin:round}
-  .nav a .tag{margin-left:auto;font-size:10.5px;color:var(--orange);font-weight:500}
-  .nav-bottom{display:flex;flex-direction:column;gap:3px;margin-top:auto;padding-top:16px;
-    border-top:1px solid var(--line)}
-  .nav-bottom a{color:var(--muted);text-decoration:none;padding:10px 14px;border-radius:9px;
-    font-size:13.5px;display:flex;align-items:center;gap:10px;transition:.18s}
-  .nav-bottom a:hover{color:var(--text);background:rgba(255,255,255,.04)}
-  .nav-bottom a svg{width:17px;height:17px;stroke:currentColor;flex-shrink:0;fill:none;
-    stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-
-  /* ---------- main ---------- */
-  .main{padding:20px 28px;display:flex;flex-direction:column;min-width:0;overflow-y:auto;
-    position:relative;min-height:0}
-  .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-  .head-left h1{font-size:22px;font-weight:700;letter-spacing:-.3px}
-  .head-left .sub{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-top:5px}
-  .head-left .sub .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse-dot 2.2s infinite}
-  .watch-icon{width:38px;height:38px;border-radius:50%;border:2px solid var(--line);display:flex;
-    align-items:center;justify-content:center;background:var(--panel)}
-  .watch-icon svg{width:18px;height:18px;stroke:var(--muted)}
-
-  .grid{display:grid;grid-template-columns:280px 1fr 272px;gap:16px;flex:1;min-height:0;overflow-y:auto}
-  .col{display:flex;flex-direction:column;gap:14px}
-
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;
-    transition:border-color .2s, transform .2s, box-shadow .2s}
-  .card:hover{border-color:#333a42;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.2)}
-  h2{font-size:10.5px;color:var(--muted);letter-spacing:1.6px;font-weight:600;text-transform:uppercase}
-  .big{font-size:16px;font-weight:600;margin-top:4px}
-
-  /* waveform */
-  .wave{display:flex;align-items:center;gap:3px;height:48px;margin:14px 0 10px}
-  .wave span{width:3px;border-radius:3px;background:var(--text);opacity:.85}
-  .wave.playing span{animation:wobble 1.8s ease-in-out infinite;transform-origin:center}
-
-  .times{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
-  .slider{appearance:none;width:100%;height:4px;background:var(--line);border-radius:4px;outline:none;margin:8px 0 12px}
-  .slider::-webkit-slider-thumb{appearance:none;width:13px;height:13px;border-radius:50%;background:var(--orange);
-    border:2px solid #fff;cursor:pointer;transition:.15s}
-  .slider::-webkit-slider-thumb:hover{transform:scale(1.3)}
-
-  .ctrl{display:flex;justify-content:center;gap:16px;align-items:center}
-  .round{width:32px;height:32px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);
-    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);
-    transition:.18s;font-size:12px}
-  .round:hover{background:var(--line);transform:scale(1.08)}
-  .round.big{width:44px;height:44px}
-  .round svg{flex-shrink:0}
-
-  button{cursor:pointer;border:1px solid var(--line);border-radius:11px;font-size:13.5px;font-weight:600;
-    color:var(--text);background:var(--panel2);padding:13px 16px;transition:.18s;font-family:inherit}
-  button:hover{background:var(--line);transform:translateY(-1px)}
-  button:active{transform:translateY(0)}
-  button.primary{background:var(--orange);color:#fff;border-color:transparent;
-    box-shadow:0 2px 8px rgba(255,85,0,.25)}
-  button.primary:hover{background:var(--orange-d);box-shadow:0 4px 14px rgba(255,85,0,.35)}
-  button.primary:disabled{opacity:.7;cursor:wait}
-  button.ghost{background:transparent;border-color:transparent;color:var(--muted);font-weight:500}
-  button.ghost:hover{color:var(--text);background:rgba(255,255,255,.05)}
-  button.small{padding:7px 14px;font-size:12px;border-radius:8px}
-
-  .statusbar{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:12px 16px}
-  .statusbar .left{display:flex;gap:9px;align-items:center;color:var(--muted)}
-  .statusbar svg{width:15px;height:15px;stroke:var(--muted)}
-
-  .file-card{display:none;margin-top:0}
-  .file-card.visible{display:block;animation:float-up .4s cubic-bezier(.16,1,.3,1) both}
-  .file-name{font-size:14px;font-weight:600;margin-bottom:2px}
-  .file-card .wave{height:32px;margin:8px 0 4px}
-  .preview-row{display:flex;align-items:center;gap:10px;margin-top:6px}
-  .preview-row span{margin-left:auto;color:var(--muted);font-size:12px}
-
-  .change-btn{padding:15px 18px;font-size:14px;letter-spacing:.4px;text-transform:uppercase;
-    display:flex;justify-content:space-between;align-items:center;font-weight:700;
-    animation:glow 3s ease-in-out infinite}
-  .change-btn .mini{font-size:11px;font-weight:400;text-transform:none;opacity:.9}
-  .change-btn .spin{display:none;animation:spin 1s linear infinite;font-size:16px}
-  .change-btn.busy .spin{display:inline-block}
-
-  .note-card{display:flex;gap:10px;color:var(--muted);font-size:12px;line-height:1.6;
-    align-items:flex-start;padding:14px}
-  .note-card b{color:var(--text)}
-  .note-card .icon{color:#4cc2ff;flex-shrink:0;margin-top:1px}
-
-  /* ---------- toasts ---------- */
-  .toast{position:fixed;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--green);
-    border-radius:12px;padding:13px 16px;font-size:13px;box-shadow:0 8px 30px rgba(0,0,0,.5);
-    z-index:100;display:none}
-  .toast.show{display:block;animation:toast-in .4s cubic-bezier(.16,1,.3,1) both}
-  .toast.hide{animation:toast-out .3s forwards}
-  .toast.success{bottom:64px;left:calc(180px + 24px);border-left-color:var(--green);width:280px}
-  .toast.error{bottom:64px;right:24px;border-left-color:var(--red);width:280px}
-  .toast p{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.4}
-  .toast button{margin-top:10px}
-
-  /* ---------- footer ---------- */
-  .footer{display:flex;align-items:center;gap:18px;margin-top:14px;padding-top:14px;
-    border-top:1px solid var(--line)}
-  .footer a{color:var(--muted);text-decoration:none;font-size:12px;display:flex;align-items:center;
-    gap:6px;transition:.15s}
-  .footer a:hover{color:var(--text)}
-  .footer a svg{width:13px;height:13px}
-  .footer .coffee{background:rgba(255,85,0,.12);color:#ffb37a;border:1px solid rgba(255,85,0,.2);
-    display:flex;align-items:center;gap:6px;font-size:12px;padding:8px 16px;border-radius:9px;
-    font-weight:500}
-  .footer .coffee:hover{background:rgba(255,85,0,.2)}
-  .footer .ver{margin-left:auto;color:var(--muted);font-size:11.5px;letter-spacing:.2px}
+:root{
+  --bg-deep:#08090b;--bg:#0e1013;
+  --g1:rgba(255,255,255,.03);--g2:rgba(255,255,255,.05);--g3:rgba(255,255,255,.07);
+  --gb:rgba(255,255,255,.06);--gbh:rgba(255,255,255,.10);--spec:rgba(255,255,255,.08);
+  --text:#f0f1f3;--t2:#c8cdd5;--mut:#7a828e;--mut2:#5a6270;
+  --org:#ff5500;--orgh:#ff7733;--grn:#3ddc84;--red:#ff5d5d;
+  --r:16px;--rs:12px;--rx:8px;--bl:24px;--bls:16px;
+  --shl:0 8px 32px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2);
+  --shm:0 4px 16px rgba(0,0,0,.3),0 1px 4px rgba(0,0,0,.15);
+  --shs:0 2px 8px rgba(0,0,0,.2);
+  --sho:0 4px 20px rgba(255,85,0,.2),0 1px 6px rgba(255,85,0,.1);
+  --e:cubic-bezier(.16,1,.3,1);--d:.25s;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;user-select:none;font-family:"Segoe UI Variable","Segoe UI",system-ui,sans-serif;background:var(--bg-deep);color:var(--text)}
+.amb{position:fixed;inset:0;z-index:0;pointer-events:none}
+.amb::before{content:"";position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(255,85,0,.04) 0%,transparent 70%);top:-200px;right:-100px;filter:blur(80px)}
+.amb::after{content:"";position:absolute;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(255,85,0,.02) 0%,transparent 70%);bottom:-100px;left:10%;filter:blur(60px)}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes flin{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes tin{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes tout{to{opacity:0;transform:translateY(8px)}}
+@keyframes pdot{0%,100%{box-shadow:0 0 0 0 rgba(61,220,132,.5)}70%{box-shadow:0 0 0 8px rgba(61,220,132,0)}}
+@keyframes wob{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.4)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes glow{0%,100%{box-shadow:var(--sho)}50%{box-shadow:0 4px 28px rgba(255,85,0,.3),0 1px 8px rgba(255,85,0,.15)}}
+.rise{animation:rise .5s var(--e) both}
+.r1{animation-delay:.04s}.r2{animation-delay:.08s}.r3{animation-delay:.12s}.r4{animation-delay:.16s}.r5{animation-delay:.2s}.r6{animation-delay:.24s}
+.flin{animation:flin .5s var(--e) both}
+#tbar{display:flex;align-items:center;height:38px;padding:0 0 0 14px;background:rgba(255,255,255,.01);border-bottom:1px solid var(--gb);-webkit-app-region:drag;position:relative;z-index:10}
+#tbar .at{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut);letter-spacing:.2px}
+#tbar .at img{width:15px;height:15px}
+#tbar .bt{margin-left:auto;display:flex;-webkit-app-region:no-drag}
+#tbar .bt div{width:46px;height:38px;display:flex;align-items:center;justify-content:center;color:var(--mut);cursor:pointer;transition:.15s;font-size:13px}
+#tbar .bt div:hover{background:var(--g2);color:var(--text)}
+#tbar .bt div.cl:hover{background:#e81123;color:#fff}
+.app{display:grid;grid-template-columns:200px 1fr;height:calc(100vh - 38px);position:relative;z-index:1}
+.sb{background:rgba(255,255,255,.015);backdrop-filter:blur(var(--bls)) saturate(1.1);-webkit-backdrop-filter:blur(var(--bls)) saturate(1.1);border-right:1px solid var(--gb);display:flex;flex-direction:column;padding:24px 14px 14px;min-height:0;position:relative;z-index:2}
+.sb::after{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--spec),transparent)}
+.lg{padding:0 12px 28px;display:flex;align-items:center}
+.lg img{height:22px;filter:brightness(1.1)}
+.nv{display:flex;flex-direction:column;gap:4px;flex:1}
+.nv a{color:var(--mut);text-decoration:none;padding:11px 14px;border-radius:var(--rs);font-size:13.5px;display:flex;align-items:center;gap:11px;position:relative;transition:all var(--d) var(--e)}
+.nv a img{width:18px;height:18px;opacity:.6;transition:opacity var(--d) var(--e)}
+.nv a:hover{color:var(--text);background:var(--g1)}
+.nv a:hover img{opacity:.9}
+.nv a.act{color:var(--text);background:linear-gradient(135deg,rgba(255,85,0,.12),rgba(255,85,0,.06));border:1px solid rgba(255,85,0,.15);box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 2px 8px rgba(255,85,0,.06)}
+.nv a.act::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;background:var(--org);border-radius:0 2px 2px 0;box-shadow:0 0 8px rgba(255,85,0,.3)}
+.nv a.act img{opacity:1}
+.nv a .tg{margin-left:auto;font-size:10.5px;color:var(--org);font-weight:500;background:rgba(255,85,0,.1);padding:2px 8px;border-radius:10px}
+.nvb{display:flex;flex-direction:column;gap:4px;margin-top:auto;padding-top:14px;border-top:1px solid var(--gb)}
+.nvb a{color:var(--mut);text-decoration:none;padding:10px 14px;border-radius:var(--rs);font-size:13.5px;display:flex;align-items:center;gap:11px;transition:all var(--d) var(--e)}
+.nvb a img{width:18px;height:18px;opacity:.6;transition:opacity var(--d) var(--e)}
+.nvb a:hover{color:var(--text);background:var(--g1)}
+.nvb a:hover img{opacity:.9}
+.main{padding:20px 28px;display:flex;flex-direction:column;min-width:0;overflow-y:auto;position:relative;min-height:0}
+.main::-webkit-scrollbar{width:4px}
+.main::-webkit-scrollbar-track{background:transparent}
+.main::-webkit-scrollbar-thumb{background:var(--gb);border-radius:4px}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.head-left h1{font-size:22px;font-weight:700;letter-spacing:-.3px}
+.head-left .sub{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mut);margin-top:6px}
+.head-left .sub .dot{width:7px;height:7px;border-radius:50%;background:var(--grn);animation:pdot 2.2s infinite}
+.wi{width:44px;height:44px;border-radius:50%;background:var(--g2);border:1px solid var(--gbh);display:flex;align-items:center;justify-content:center;box-shadow:var(--shs);position:relative;overflow:hidden}
+.wi::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.06),transparent 60%)}
+.wi img{width:22px;height:22px;position:relative;z-index:1;opacity:.7}
+.grid{display:grid;grid-template-columns:280px 1fr 280px;gap:16px;flex:1;min-height:0;overflow-y:auto}
+.col{display:flex;flex-direction:column;gap:14px}
+.gl{background:var(--g1);backdrop-filter:blur(var(--bl)) saturate(1.2);-webkit-backdrop-filter:blur(var(--bl)) saturate(1.2);border:1px solid var(--gb);border-radius:var(--r);padding:18px;position:relative;transition:border-color .3s var(--e),transform .3s var(--e),box-shadow .3s var(--e)}
+.gl::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--spec),transparent);border-radius:var(--r) var(--r) 0 0}
+.gl::after{content:"";position:absolute;inset:0;border-radius:var(--r);background:radial-gradient(circle at 20% 15%,rgba(255,255,255,.03),transparent 50%);pointer-events:none}
+.gl:hover{border-color:var(--gbh);transform:translateY(-1px);box-shadow:var(--shm)}
+.gl.ev{background:var(--g2);box-shadow:var(--shs)}
+.gl.ev:hover{box-shadow:var(--shm)}
+h2{font-size:10.5px;color:var(--mut);letter-spacing:1.8px;font-weight:600;text-transform:uppercase}
+.big{font-size:17px;font-weight:600;margin-top:5px;letter-spacing:-.2px}
+.wv{display:flex;align-items:center;gap:3px;height:52px;margin:16px 0 10px}
+.wv span{width:3px;border-radius:3px;background:var(--t2);opacity:.7;transition:opacity .3s}
+.wv.pl span{animation:wob 1.8s ease-in-out infinite;transform-origin:center;background:var(--orgh);opacity:.9}
+.tms{display:flex;justify-content:space-between;font-size:11px;color:var(--mut2);font-variant-numeric:tabular-nums}
+.sl{appearance:none;-webkit-appearance:none;width:100%;height:4px;background:var(--g2);border-radius:4px;outline:none;margin:10px 0 14px;cursor:pointer}
+.sl::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--org);border:2.5px solid #fff;cursor:pointer;transition:transform .15s var(--e);box-shadow:0 0 6px rgba(255,85,0,.3)}
+.sl::-webkit-slider-thumb:hover{transform:scale(1.3);box-shadow:0 0 10px rgba(255,85,0,.4)}
+.ctl{display:flex;justify-content:center;gap:18px;align-items:center}
+.rnd{width:36px;height:36px;border-radius:50%;background:var(--g2);border:1px solid var(--gb);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);transition:all var(--d) var(--e);position:relative;overflow:hidden}
+.rnd::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--spec),transparent)}
+.rnd:hover{background:var(--g3);transform:scale(1.08);border-color:var(--gbh)}
+.rnd:active{transform:scale(.96)}
+.rnd.bg{width:48px;height:48px}
+.rnd img{width:16px;height:16px;opacity:.8;transition:opacity var(--d)}
+.rnd:hover img{opacity:1}
+.rnd.bg img{width:19px;height:19px}
+button{cursor:pointer;border:1px solid var(--gb);border-radius:var(--rs);font-size:13.5px;font-weight:600;color:var(--text);background:var(--g2);backdrop-filter:blur(var(--bls));padding:13px 18px;transition:all var(--d) var(--e);font-family:inherit;position:relative;overflow:hidden}
+button::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--spec),transparent)}
+button:hover{background:var(--g3);transform:translateY(-1px);border-color:var(--gbh);box-shadow:var(--shs)}
+button:active{transform:translateY(0) scale(.98)}
+button.pri{background:linear-gradient(135deg,var(--org),#e04d00);color:#fff;border-color:transparent;box-shadow:var(--sho);position:relative}
+button.pri::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent)}
+button.pri::after{content:"";position:absolute;inset:0;border-radius:var(--rs);background:radial-gradient(circle at 30% 0%,rgba(255,255,255,.12),transparent 60%)}
+button.pri:hover{background:linear-gradient(135deg,var(--orgh),#f05500);box-shadow:0 4px 24px rgba(255,85,0,.3),0 1px 8px rgba(255,85,0,.15);transform:translateY(-1px)}
+button.pri:active{transform:translateY(0) scale(.98)}
+button.pri:disabled{opacity:.7;cursor:wait}
+button.pri span{position:relative;z-index:2}
+button.pri img{position:relative;z-index:2}
+button.gho{background:transparent;border-color:transparent;color:var(--mut);font-weight:500}
+button.gho:hover{color:var(--text);background:var(--g1)}
+button.sm{padding:8px 16px;font-size:12px;border-radius:var(--rx)}
+.stb{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:14px 18px}
+.stb .lt{display:flex;gap:10px;align-items:center;color:var(--mut)}
+.stb img{width:16px;height:16px;opacity:.6}
+.fc{display:none}
+.fc.vis{display:block;animation:flin .45s var(--e) both}
+.fn{font-size:14.5px;font-weight:600;margin-bottom:4px}
+.fc .wv{height:36px;margin:10px 0 6px}
+.pr{display:flex;align-items:center;gap:10px;margin-top:8px}
+.pr span{margin-left:auto;color:var(--mut2);font-size:12px;font-variant-numeric:tabular-nums}
+.pr button img{width:13px;height:13px;vertical-align:-2px;margin-right:4px}
+.cbtn{padding:16px 20px;font-size:14px;letter-spacing:.4px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;font-weight:700;animation:glow 3s ease-in-out infinite}
+.cbtn .mn{font-size:11px;font-weight:400;text-transform:none;opacity:.85}
+.cbtn .sp{display:none;animation:spin 1s linear infinite;font-size:16px}
+.cbtn.bsy .sp{display:inline-block}
+.nc{display:flex;gap:10px;color:var(--mut);font-size:12px;line-height:1.65;align-items:flex-start;padding:16px}
+.nc b{color:var(--text)}
+.nc .ic{flex-shrink:0;margin-top:1px}
+.nc .ic img{width:16px;height:16px}
+.abtn{display:flex;align-items:center;gap:10px;padding:14px 18px}
+.abtn img{width:17px;height:17px;opacity:.7}
+.tst{position:fixed;z-index:100;background:rgba(20,22,26,.9);backdrop-filter:blur(var(--bl)) saturate(1.2);-webkit-backdrop-filter:blur(var(--bl)) saturate(1.2);border:1px solid var(--gbh);border-radius:var(--r);padding:16px 18px;font-size:13px;box-shadow:var(--shl);display:none;width:300px;overflow:hidden}
+.tst::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--spec),transparent)}
+.tst.show{display:block;animation:tin .4s var(--e) both}
+.tst.hide{animation:tout .3s forwards}
+.tst.suc{bottom:70px;left:calc(200px + 20px);border-left:3px solid var(--grn)}
+.tst.err{bottom:70px;right:24px;border-left:3px solid var(--red)}
+.tst p{color:var(--mut);font-size:12px;margin-top:5px;line-height:1.5}
+.tst button{margin-top:12px}
+.tst .ti{width:16px;height:16px;vertical-align:-3px;margin-right:4px}
+.tst .tc{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--mut);cursor:pointer;font-size:14px;padding:2px;opacity:.6;transition:opacity .15s}
+.tst .tc:hover{opacity:1}
+.ftr{display:flex;align-items:center;gap:18px;margin-top:16px;padding-top:16px;border-top:1px solid var(--gb)}
+.ftr a{color:var(--mut);text-decoration:none;font-size:12px;display:flex;align-items:center;gap:7px;transition:color var(--d)}
+.ftr a:hover{color:var(--text)}
+.ftr a img{width:14px;height:14px;opacity:.6;transition:opacity var(--d)}
+.ftr a:hover img{opacity:1}
+.ftr .cof{background:rgba(255,85,0,.08);color:#ffb37a;border:1px solid rgba(255,85,0,.12);display:flex;align-items:center;gap:7px;font-size:12px;padding:8px 16px;border-radius:var(--rx);font-weight:500;transition:all var(--d) var(--e)}
+.ftr .cof:hover{background:rgba(255,85,0,.15);border-color:rgba(255,85,0,.2);transform:translateY(-1px)}
+.ftr .cof img{width:14px;height:14px}
+.ftr .ver{margin-left:auto;color:var(--mut2);font-size:11.5px;letter-spacing:.2px;font-variant-numeric:tabular-nums}
+*:focus-visible{outline:2px solid var(--org);outline-offset:2px;border-radius:4px}
 </style>
 </head>
 <body>
-<div id="titlebar">
-  <div class="app-title">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff5500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-    CMF Ringtone Tool
-  </div>
-  <div class="btns">
-    <div id="min">—</div><div id="max">□</div><div class="close" id="close">✕</div>
-  </div>
+<div class="amb"></div>
+<div id="tbar">
+  <div class="at"><img src="assets/icons/sidebar_ringtone_transparent.png" alt="" /> CMF Ringtone Tool</div>
+  <div class="bt"><div id="min">—</div><div id="max">□</div><div class="cl" id="close">✕</div></div>
 </div>
-
 <div class="app">
-  <nav class="sidebar">
-    <div class="logo rise">cmf</div>
-    <div class="nav rise rise-1">
-      <a href="#" class="active">
-        <svg viewBox="0 0 24 24"><path d="M9 18V6l12-2v11"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        Ringtone <span class="tag">Active</span>
-      </a>
-      <a href="#" onclick="soon();return false">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-        Watch
-      </a>
-      <a href="#" onclick="soon();return false">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82"/></svg>
-        Settings
-      </a>
-      <a href="#" onclick="soon();return false">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        About
-      </a>
+  <nav class="sb">
+    <div class="lg rise"><img src="assets/icons/cmf_logo_transparent.png" alt="cmf" /></div>
+    <div class="nv rise r1">
+      <a href="#" class="act"><img src="assets/icons/sidebar_ringtone_transparent.png" alt="" /> Ringtone <span class="tg">Active</span></a>
+      <a href="#" onclick="soon();return false"><img src="assets/icons/sidebar_watch_transparent.png" alt="" /> Watch</a>
+      <a href="#" onclick="soon();return false"><img src="assets/icons/sidebar_settings_transparent.png" alt="" /> Settings</a>
+      <a href="#" onclick="soon();return false"><img src="assets/icons/sidebar_about_transparent.png" alt="" /> About</a>
     </div>
-    <div class="nav-bottom">
-      <a href="#" onclick="soon();return false">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82"/></svg>
-        Settings
-      </a>
-      <a href="#" onclick="soon();return false">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        About
-      </a>
+    <div class="nvb">
+      <a href="#" onclick="soon();return false"><img src="assets/icons/sidebar_settings_transparent.png" alt="" /> Settings</a>
+      <a href="#" onclick="soon();return false"><img src="assets/icons/sidebar_about_transparent.png" alt="" /> About</a>
     </div>
   </nav>
-
   <main class="main">
-    <div class="head rise rise-1">
+    <div class="head rise r1">
       <div class="head-left">
         <h1>CMF Ringtone Tool</h1>
         <div class="sub"><span class="dot"></span> Watch Pro 2 · Connected via Bluetooth</div>
       </div>
-      <div class="watch-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><path d="M12 9v3l2 2"/><path d="M16.5 5.5 15 2H9L7.5 5.5"/><path d="M16.5 18.5 15 22H9l-1.5-3.5"/></svg>
-      </div>
+      <div class="wi"><img src="assets/icons/sidebar_watch_transparent.png" alt="Watch Pro 2" /></div>
     </div>
-
     <div class="grid">
       <div class="col">
-        <div class="card rise rise-2">
+        <div class="gl rise r2">
           <h2>Current Ringtone</h2>
           <div class="big">Ring 1</div>
-          <div class="wave" id="wave1"></div>
-          <div class="times"><span id="time-left">00:07 / 00:24</span><span>00:24</span></div>
-          <input class="slider" type="range" id="prog" min="0" max="24" value="7">
-          <div class="ctrl">
-            <div class="round" title="Previous">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
-            </div>
-            <div class="round big" id="play">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-            </div>
-            <div class="round" title="Next">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
-            </div>
+          <div class="wv" id="wave1"></div>
+          <div class="tms"><span id="time-left">00:07 / 00:24</span><span>00:24</span></div>
+          <input class="sl" type="range" id="prog" min="0" max="24" value="7">
+          <div class="ctl">
+            <div class="rnd" title="Previous"><img src="assets/icons/current_next_transparent.png" alt="Previous" style="transform:scaleX(-1)" /></div>
+            <div class="rnd bg" id="play"><img src="assets/icons/current_play_transparent.png" alt="Play" id="play-icon" /></div>
+            <div class="rnd" title="Next"><img src="assets/icons/current_next_transparent.png" alt="Next" /></div>
           </div>
         </div>
       </div>
-
       <div class="col">
-        <div class="card statusbar rise rise-2">
-          <div class="left">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 16.5a2 2 0 1 1 0-4h11a6 6 0 1 1 0 12"/></svg>
-            Connected via Bluetooth
-          </div>
-          <button class="ghost small" id="disconnect">Disconnect</button>
+        <div class="gl ev stb rise r2">
+          <div class="lt"><img src="assets/icons/bluetooth_transparent.png" alt="" /> Connected via Bluetooth</div>
+          <button class="gho sm" id="disconnect">Disconnect</button>
         </div>
-
-        <div class="card rise rise-3">
-          <button class="primary" id="choose" style="width:100%;padding:14px">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            Choose Ringtone (WAV, MP3, …)
+        <div class="gl rise r3">
+          <button class="pri" id="choose" style="width:100%;padding:15px">
+            <span><img src="assets/icons/upload_transparent.png" alt="" style="width:16px;height:16px;vertical-align:-2px;margin-right:6px" /> Choose Ringtone (WAV, MP3, …)</span>
           </button>
         </div>
-
-        <div class="card file-card" id="file-card">
-          <div class="file-name">Forza_Horizon_5_Menu.wav</div>
-          <div class="wave" id="wave2"></div>
-          <div class="preview-row">
-            <button class="small" id="preview-btn">▶ Preview</button>
+        <div class="gl fc" id="file-card">
+          <div class="fn">Forza_Horizon_5_Menu.wav</div>
+          <div class="wv" id="wave2"></div>
+          <div class="pr">
+            <button class="sm" id="preview-btn"><img src="assets/icons/preview_play_transparent.png" alt="" /> Preview</button>
             <span>00:31</span>
           </div>
         </div>
-
-        <button class="primary change-btn rise rise-4" id="change">
-          <span>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="7"/><path d="M12 9v3l2 2"/><path d="M16.5 5.5 15 2H9L7.5 5.5"/><path d="M16.5 18.5 15 22H9l-1.5-3.5"/></svg>
-            Change Ringtone
-          </span>
-          <span class="mini" id="change-mini"></span>
-          <span class="spin" id="change-spin">⟳</span>
+        <button class="pri cbtn rise r4" id="change">
+          <span><img src="assets/icons/change_watch_transparent.png" alt="" style="width:17px;height:17px;vertical-align:-2px;margin-right:5px" /> Change Ringtone</span>
+          <span class="mn" id="change-mini"></span>
+          <span class="sp" id="change-spin">⟳</span>
         </button>
       </div>
-
       <div class="col">
-        <button class="rise rise-3">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:6px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-          Restore Original Ringtone
-        </button>
-        <button class="rise rise-4">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:6px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Backup Current Ringtone
-        </button>
-        <div class="card note-card rise rise-5">
-          <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <button class="abtn rise r3"><img src="assets/icons/restore_original_transparent.png" alt="" /> Restore Original Ringtone</button>
+        <button class="abtn rise r4"><img src="assets/icons/backup_folder_transparent.png" alt="" /> Backup Current Ringtone</button>
+        <div class="gl nc rise r5">
+          <span class="ic"><img src="assets/icons/info_transparent.png" alt="" /></span>
           <div><b>Ringtones are automatically converted</b> to the required ACT format and transferred to the watch over Bluetooth.</div>
         </div>
       </div>
     </div>
-
-    <div class="footer rise rise-6">
-      <a href="#" onclick="openRepo();return false">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
-        github.com/tirodz
-      </a>
-      <button class="coffee" onclick="soon();return false">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
-        Buy Me a Coffee
-      </button>
-      <span class="ver">Version 1.0.3</span>
-    </div>
-
-    <div class="toast success" id="ok">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><polyline points="20 6 9 17 4 12"/></svg>
-      Ringtone changed successfully.
-      <p>Your new ringtone is now installed on your Watch Pro 2.</p>
-    </div>
-    <div class="toast error" id="err">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-      Ringtone change failed.
-      <p>Your original ringtone has not been modified.</p>
-      <button class="small" id="retry">Retry</button>
+    <div class="ftr rise r6">
+      <a href="#" onclick="openRepo();return false"><img src="assets/icons/github_link_transparent.png" alt="" /> github.com/tirodz</a>
+      <button class="cof" onclick="soon();return false"><img src="assets/icons/coffee_transparent.png" alt="" /> Buy Me a Coffee</button>
+      <span class="ver">Version 1.0.0</span>
     </div>
   </main>
 </div>
-
+<div class="tst suc" id="ok">
+  <button class="tc" onclick="this.parentElement.classList.add('hide')">✕</button>
+  <img class="ti" src="assets/icons/success_check_transparent.png" alt="" /> Ringtone changed successfully.
+  <p>Your new ringtone is now installed on your Watch Pro 2.</p>
+</div>
+<div class="tst err" id="err">
+  <button class="tc" onclick="this.parentElement.classList.add('hide')">✕</button>
+  <img class="ti" src="assets/icons/error_transparent.png" alt="" /> Ringtone change failed.
+  <p>Your original ringtone has not been modified.</p>
+  <button class="sm" id="retry">Retry</button>
+</div>
 <script>
-  function buildWave(id, n, h){
-    const w = document.getElementById(id);
-    for(let i=0;i<n;i++){
-      const s = document.createElement('span');
-      s.style.height = ((Math.sin(i*.42)*.5+.5)*h*.85+h*.15)+'px';
-      s.style.animationDelay = (i*0.045)+'s';
-      w.appendChild(s);
-    }
-    return w;
-  }
-  const w1 = buildWave('wave1', 44, 44);
-  const w2 = buildWave('wave2', 60, 28);
-
-  const prog = document.getElementById('prog');
-  const fmt = s => '00:'+String(s).padStart(2,'0');
-  const timeLeft = document.getElementById('time-left');
-  let playing = false, pos = 7, timer = null;
-  const playBtn = document.getElementById('play');
-  function sync(){ timeLeft.textContent = fmt(pos)+' / 00:24'; prog.value = pos; }
-  const playSVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
-  const pauseSVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
-  playBtn.innerHTML = playSVG;
-  playBtn.onclick = () => {
-    playing = !playing;
-    playBtn.innerHTML = playing ? pauseSVG : playSVG;
-    w1.classList.toggle('playing', playing);
-    if(playing){
-      timer = setInterval(() => { pos = pos >= 24 ? 0 : pos+1; sync(); }, 1000);
-    } else clearInterval(timer);
-  };
-  prog.addEventListener('input', e => { pos = +e.target.value; sync(); });
-
-  const choose = document.getElementById('choose');
-  const change = document.getElementById('change');
-  const mini = document.getElementById('change-mini');
-  const ok = document.getElementById('ok');
-  const err = document.getElementById('err');
-  const fileCard = document.getElementById('file-card');
-
-  // show the success toast on load, matching the design mock
-  ok.classList.add('show');
-
-  choose.addEventListener('click', () => {
-    fileCard.classList.add('visible');
-    ok.classList.remove('show'); ok.classList.remove('hide');
-  });
-
-  document.getElementById('preview-btn').onclick = function(){
-    this.textContent = this.textContent.startsWith('▶') ? '⏸ Playing…' : '▶ Preview';
-    w2.classList.toggle('playing');
-  };
-
-  change.addEventListener('click', () => {
-    change.disabled = true; change.classList.add('busy');
-    err.classList.remove('show'); ok.classList.remove('show');
-    let p = 0;
-    mini.textContent = 'Converting & Transferring (0%)';
-    const t = setInterval(() => {
-      p = Math.min(p + 15, 100);
-      mini.textContent = `Converting & Transferring (${p}%)`;
-      if(p === 100){
-        clearInterval(t);
-        change.disabled = false; change.classList.remove('busy');
-        mini.textContent = '';
-        ok.classList.remove('hide'); ok.classList.add('show');
-        setTimeout(() => { ok.classList.add('hide'); }, 6000);
-      }
-    }, 400);
-  });
-
-  document.getElementById('retry').onclick = () => {
-    err.classList.add('hide');
-    setTimeout(() => { err.classList.remove('show'); err.classList.remove('hide'); }, 300);
-    change.click();
-  };
-
-  function soon(){
-    err.classList.remove('hide'); err.classList.add('show');
-    err.querySelector('p').innerHTML = 'This page is mocked —<br>real content lands with the backend.';
-  }
-
-  function openRepo(){
-    try { __TAURI__.shell.open('https://github.com/tirodz/CMF-Ringtone-Tool'); } catch {}
-  }
-  try {
-    const w = __TAURI__.window.getCurrentWindow();
-    document.getElementById('min').onclick = () => w.minimize();
-    document.getElementById('max').onclick = () => w.toggleMaximize();
-    document.getElementById('close').onclick = () => w.close();
-    document.getElementById('disconnect').onclick = () => __TAURI__.invoke('ping');
-  } catch {
-    document.getElementById('disconnect').onclick = () => {
-      err.classList.remove('hide'); err.classList.add('show');
-      err.querySelector('p').innerHTML = 'Mock: disconnect lands with<br>the BLE integration.';
-    };
-  }
+function bW(id,n,h){const w=document.getElementById(id);for(let i=0;i<n;i++){const s=document.createElement('span');s.style.height=((Math.sin(i*.42)*.5+.5)*h*.85+h*.15)+'px';s.style.animationDelay=(i*.04)+'s';w.appendChild(s)}return w}
+const w1=bW('wave1',48,48),w2=bW('wave2',64,32),prog=document.getElementById('prog'),fmt=s=>'00:'+String(s).padStart(2,'0'),tL=document.getElementById('time-left');
+let playing=false,pos=7,timer=null;const pB=document.getElementById('play'),pI=document.getElementById('play-icon'),pS='assets/icons/current_play_transparent.png',paS='assets/icons/current_pause_transparent.png';
+function sy(){tL.textContent=fmt(pos)+' / 00:24';prog.value=pos}
+pB.onclick=()=>{playing=!playing;pI.src=playing?paS:pS;w1.classList.toggle('pl',playing);playing?timer=setInterval(()=>{pos=pos>=24?0:pos+1;sy()},1e3):clearInterval(timer)};
+prog.addEventListener('input',e=>{pos=+e.target.value;sy()});
+const ch=document.getElementById('choose'),cb=document.getElementById('change'),mn=document.getElementById('change-mini'),okT=document.getElementById('ok'),erT=document.getElementById('err'),fC=document.getElementById('file-card');
+okT.classList.add('show');
+ch.addEventListener('click',()=>{fC.classList.add('vis');okT.classList.remove('show');okT.classList.remove('hide')});
+document.getElementById('preview-btn').onclick=function(){const isP=this.textContent.includes('Playing');this.innerHTML=isP?'<img src="assets/icons/preview_play_transparent.png" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px" /> Preview':'<img src="assets/icons/current_pause_transparent.png" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px" /> Playing…';w2.classList.toggle('pl')};
+cb.addEventListener('click',()=>{cb.disabled=!0;cb.classList.add('bsy');erT.classList.remove('show');okT.classList.remove('show');let p=0;mn.textContent='Converting & Transferring (0%)';const t=setInterval(()=>{p=Math.min(p+12,100);mn.textContent=`Converting & Transferring (${p}%)`;if(p===100){clearInterval(t);cb.disabled=!1;cb.classList.remove('bsy');mn.textContent='';okT.classList.remove('hide');okT.classList.add('show');setTimeout(()=>{okT.classList.add('hide')},6e3)}},350)});
+document.getElementById('retry').onclick=()=>{erT.classList.add('hide');setTimeout(()=>{erT.classList.remove('show');erT.classList.remove('hide')},300);cb.click()};
+function soon(){erT.classList.remove('hide');erT.classList.add('show');erT.querySelector('p').innerHTML='This page is mocked —<br>real content lands with the backend.'}
+function openRepo(){try{__TAURI__.shell.open('https://github.com/tirodz/CMF-Ringtone-Tool')}catch{}}
+try{const w=__TAURI__.window.getCurrentWindow();document.getElementById('min').onclick=()=>w.minimize();document.getElementById('max').onclick=()=>w.toggleMaximize();document.getElementById('close').onclick=()=>w.close();document.getElementById('disconnect').onclick=()=>__TAURI__.invoke('ping')}catch{document.getElementById('disconnect').onclick=()=>{erT.classList.remove('hide');erT.classList.add('show');erT.querySelector('p').innerHTML='Mock: disconnect lands with<br>the BLE integration.'}}
 </script>
 </body>
 </html>
