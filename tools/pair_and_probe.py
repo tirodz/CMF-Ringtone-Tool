@@ -91,6 +91,10 @@ class Probe:
         self.c = BleakClient(self.address)
         print('Connected: ', end='', flush=True)
         await self.c.connect()
+        try:
+            print(f'(MTU: {await self.c.request_mtu(247)})')
+        except Exception as e:
+            print(f'(MTU: default, {e})')
         print('YES')
         await self.c.start_notify(UUID_CMD_READ, self._h)
 
