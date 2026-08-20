@@ -10,7 +10,7 @@ import act_encode, act_decode
 from oracle import OracleDecoder
 
 
-def roundtrip(samples, oracle=False):
+def roundtrip(samples, oracle=True):
     enc = act_encode.Encoder(oracle=OracleDecoder() if oracle else None)
     out = bytearray(b'\xe1\xd3')
     for i in range(len(samples) // 160):

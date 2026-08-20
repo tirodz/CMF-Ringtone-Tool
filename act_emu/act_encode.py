@@ -267,6 +267,31 @@ def build_pulse_map():
 INIT_LSP = [335, 628, 1110, 1641, 2108, 2592, 3053, 3512, 3978, 4423, 4942, 5429, 5977, 6421, 6921, 7250]
 
 
+def pitch_field_from_lag(lag):
+    """Inverse of the sf0 pitch mapping recovered from DVD162:
+    lag = 29 + (v+2)/3 (v < 390, 1/3-sample fractional steps),
+    lag = v - 230 (v >= 390). Inverse: v = 3*(lag-29) - 2, or v = lag + 230."""
+    if lag < 160:
+        return max(0, min(389, int(round(3 * (lag - 29) - 2))))
+    return lag + 230
+
+
+def lag_from_pitch_field(v):
+    if v < 390:
+        return 29 + (v + 2) / 3.0
+    return v - 230
+
+
+def sf1_field_from_delta(delta):
+    """delta = lag1 - lag0. v<=61: lag1 = lag0 - 1 + (v+2)/3; v>61: unchanged."""
+    if delta == 0:
+        return 62
+    v = int(round(3 * (delta + 1) - 2))
+    if 0 <= v <= 61:
+        return v
+    return 62
+
+
 GAIN_CAL = None
 
 
@@ -321,15 +346,38 @@ class Encoder:
             return gain_field_for(target, cal, sf)
         g0 = gain_for(res[0:80], 0)
         g1 = gain_for(res[80:160], 1)
-        # pitch disabled (pitch tracking not yet calibrated): fields 6/14 keep
-        # harmless values, pitch gains (7/15) are zeroed
-        fields = ([m] + lsp_idx + [368, 0] + cb0 + [g0, 32, 0] + cb1 + [g1])
+        # pitch: estimate the lag on the whole-frame residual (the 80-sample
+        # subframe window is too short for low pitches). The decoder's lag
+        # range is 29..281 samples (16 kHz).
+        def frame_pitch(seg):
+            n = len(seg)
+            energy = sum(x * x for x in seg)
+            if energy < 1e3:
+                return 0, 0.0
+            best, lag = 0.0, 0
+            for lo in range(29, min(281, n - 1)):
+                num = sum(seg[i] * seg[i - lo] for i in range(lo, n))
+                den = math.sqrt(sum(x * x for x in seg[lo:]) * sum(x * x for x in seg[:n - lo]))
+                if den > 0 and num / den > best:
+                    best = num / den
+                    lag = lo
+            return lag, best
+        lag0, c0 = frame_pitch(res)
+        # Pitch engages only for voiced/speech-range content (lag >= 29
+        # samples at 16 kHz, i.e. fundamental <= ~550 Hz). Higher-pitch tones
+        # are carried by the LSP alone; forcing pitch there produced the
+        # octave/harmonic failures in the melody test (554 -> 1375 etc.).
+        pitch_ok = lag0 and c0 >= 0.5 and lag0 >= 29
+        v0 = pitch_field_from_lag(lag0) if pitch_ok else 368
+        v1 = 62
+        pg0 = pg1 = max(0, min(12, int(round(c0 * 12)))) if pitch_ok else 0
+        fields = ([m] + lsp_idx + [v0, pg0] + cb0 + [g0, v1, pg1] + cb1 + [g1])
         fr = pack_fields(fields)
         # 6. closed-loop gain refinement via oracle (if attached)
         if self.oracle is not None:
             target_rms = (sum(x*x for x in samples) / len(samples)) ** 0.5
-            if target_rms > 1:
-                for _ in range(3):
+            if target_rms > 0.5:
+                for _ in range(5):
                     snap = self.oracle.snapshot()
                     dec = self.oracle.decode_frame(fr)
                     got = (sum(x*x for x in dec) / len(dec)) ** 0.5
@@ -339,6 +387,8 @@ class Encoder:
                     ratio = target_rms / got
                     import math as _m
                     db = 20 * _m.log10(ratio)
+                    if abs(db) < 1.5:
+                        break
                     step0 = max(1, round(db / 3.0))
                     step1 = max(1, round(db / 3.5))
                     fields[13] = max(0, min(31, fields[13] + (step0 if ratio > 1 else -step0)))
