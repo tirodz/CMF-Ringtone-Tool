@@ -14,12 +14,22 @@
   <a href="https://github.com/tirodz/CMF-Ringtone-Tool/issues"><img src="https://img.shields.io/github/issues/tirodz/CMF-Ringtone-Tool?color=ff5500" alt="GitHub issues"/></a>
   <img src="https://img.shields.io/badge/python-3.x-3776AB?logo=python&logoColor=white" alt="Python 3"/>
   <img src="https://img.shields.io/badge/device-CMF%20Watch%20Pro%202-ff5500" alt="CMF Watch Pro 2"/>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-ff5500" alt="License: GPL-3.0"/></a>
+</p>
+
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=20&duration=2500&pause=800&color=FF5500&center=true&vCenter=true&width=700&lines=Decode+.act+ringtones+%E2%86%92+WAV;Encode+WAV+%E2%86%92+ACT+v4;Splice+stock+tones+into+your+own;Beam+it+to+the+watch+over+BLE+%F0%9F%93%A1" alt="Decode .act ringtones → WAV • Encode WAV → ACT v4 • Splice stock tones • Beam it to the watch over BLE"/>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/decoder-%E2%9C%85%20working-brightgreen" alt="Decoder: working"/>
   <img src="https://img.shields.io/badge/encoder-%F0%9F%9A%A7%20in%20progress-orange" alt="Encoder: in progress"/>
   <img src="https://img.shields.io/badge/BLE%20install-%F0%9F%A7%AA%20untested%20on%20hardware-yellow" alt="BLE install: untested on hardware"/>
+</p>
+
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=python,rust,js,html,css,git,github,tauri&theme=dark" alt="Tech stack: Python, Rust, JavaScript, HTML, CSS, Git, GitHub, Tauri"/><br/>
+  <sub><em>Python research tooling today — Rust + Tauri desktop app incoming</em></sub>
 </p>
 
 <p align="center">
@@ -236,7 +246,9 @@ The ACT decoder binary (`a1_act_d.a`) is © Actions Technology; the CMF firmware
 
 ## 📄 License
 
-This repository doesn't currently ship a `LICENSE` file — until one is added, the code is shared for research and educational purposes, with all rights reserved by the author. Third-party components and upstream projects listed above remain under their own licenses. (If you're the maintainer: adding an explicit license, e.g. MIT or GPL-3.0, would make contributing easier! 😉)
+**GPL-3.0** — free software: use it, break it, improve it, share it. The full text lives in [`LICENSE`](LICENSE).
+
+Third-party components and upstream projects listed in [Credits](#-credits) remain under their own licenses. The ACT decoder binary (`a1_act_d.a`) is © Actions Technology; the CMF firmware and trademarks are © CMF/Nothing.
 
 ---
 
