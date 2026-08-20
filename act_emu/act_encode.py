@@ -298,9 +298,10 @@ GAIN_CAL = None
 def load_gain_cal():
     global GAIN_CAL
     if GAIN_CAL is None:
-        import json
+        import json, os
         try:
-            GAIN_CAL = json.load(open('/workspace/project/act_emu/gain_cal.json'))
+            path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gain_cal.json')
+            GAIN_CAL = json.load(open(path))
         except OSError:
             GAIN_CAL = None
     return GAIN_CAL

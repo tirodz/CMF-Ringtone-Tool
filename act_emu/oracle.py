@@ -1,9 +1,10 @@
 """oracle.py - persistent original-decoder oracle with state save/restore."""
-import struct, json
+import os, struct, json
 from unicorn import *
 from unicorn.arm_const import *
 
-IMG = json.load(open('/workspace/project/act_emu/linked.json'))
+_IMG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'linked.json')
+IMG = json.load(open(_IMG_PATH))
 BASE = IMG['base']; CODE = bytes.fromhex(IMG['image']); SYM = IMG['symbols']
 RAM_BASE = 0x20000000; RAM_SIZE = 0x200000; STACK_TOP = RAM_BASE + RAM_SIZE - 0x100
 

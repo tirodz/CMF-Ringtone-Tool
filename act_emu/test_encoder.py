@@ -79,17 +79,26 @@ def main():
     results.append(('3s duration', ok, f"frames={nf} rms={m['dec_rms']:.0f}"))
 
     # 6. stock ring1 re-encode (regression: known-good content)
-    k = bytes([0x57, 0x2a])
-    d0 = open('/workspace/project/cmf-watch-firmware/sdfs_extract/ring1.act', 'rb').read()
-    raw = bytes(b ^ k[i % 2] for i, b in enumerate(d0))
-    od = OracleDecoder()
-    frames = [raw[2 + 20 * i:2 + 20 * (i + 1)] for i in range(40)]
-    orig = [od.decode_frame(fr) for fr in frames]
-    target = [x for p in orig for x in p]
+    # Prefer the original firmware extract; fall back to the decoded reference
+    # WAV in wav/ so the test also runs on a clean checkout.
+    import wave
+    target = None
+    try:
+        k = bytes([0x57, 0x2a])
+        d0 = open('/workspace/project/cmf-watch-firmware/sdfs_extract/ring1.act', 'rb').read()
+        raw = bytes(b ^ k[i % 2] for i, b in enumerate(d0))
+        od = OracleDecoder()
+        frames = [raw[2 + 20 * i:2 + 20 * (i + 1)] for i in range(40)]
+        orig = [od.decode_frame(fr) for fr in frames]
+        target = [x for p in orig for x in p]
+    except OSError:
+        here = os.path.dirname(os.path.abspath(__file__))
+        w = wave.open(os.path.join(here, 'wav', 'ring1.wav'), 'rb')
+        target = list(struct.unpack('<%dh' % w.getnframes(), w.readframes(w.getnframes())))
+        od = OracleDecoder()
     s, nf = roundtrip(target)
-    assert nf == 40
     m = metrics(target[:len(s)], s)
-    results.append(('ring1 re-encode', nf == 40, f"snr={m['snr']:.1f}dB"))
+    results.append(('ring1 re-encode', nf == len(target) // 160, f"snr={m['snr']:.1f}dB"))
 
     allok = True
     for name, ok, info in results:
