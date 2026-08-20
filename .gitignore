@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 original*.bin
 modified_aota.bin
+
+# Tauri build outputs
+app/src-tauri/target/

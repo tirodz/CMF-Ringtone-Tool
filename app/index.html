@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CMF Ringtone Tool</title>
+<style>
+  :root{
+    --bg:#0d0f13; --panel:#161a20; --panel2:#1c2129; --line:#2a313c;
+    --text:#e8eaed; --muted:#8b93a1; --orange:#ff5500; --orange-d:#e04d00;
+    --green:#3ddc84; --red:#ff5d5d;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:"Segoe UI",system-ui,sans-serif}
+  body{background:var(--bg);color:var(--text);overflow:hidden;user-select:none}
+
+  .app{display:grid;grid-template-columns:190px 1fr;height:100vh}
+  .sidebar{background:#0a0c0f;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:22px 14px}
+  .logo{font-size:26px;font-weight:800;letter-spacing:1px;color:var(--text);padding:0 8px 18px}
+  .nav,.nav-bottom{display:flex;flex-direction:column;gap:2px}
+  .nav{flex:1}
+  .nav a{
+    color:var(--muted);text-decoration:none;padding:10px 12px;border-radius:8px;
+    display:flex;gap:10px;align-items:center;font-size:14px;transition:.15s
+  }
+  .nav a:hover{color:var(--text);background:var(--panel)}
+  .nav a.active{color:var(--orange);background:var(--panel);border-left:3px solid var(--orange)}
+  .nav a.active small{color:var(--orange);font-size:11px}
+  .nav a svg{width:16px;height:16px;stroke:currentColor}
+
+  .main{padding:26px 30px;display:flex;flex-direction:column;gap:18px;overflow:hidden}
+  .head{display:flex;justify-content:space-between;align-items:center}
+  .head h1{font-size:26px;font-weight:700}
+  .status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+
+  .grid{display:grid;grid-template-columns:270px 1fr;gap:18px;flex:1}
+  .col{display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .row{display:flex;justify-content:space-between;align-items:center}
+  h2{font-size:11px;color:var(--muted);letter-spacing:1.4px;font-weight:600}
+  .big{font-size:16px;font-weight:600}
+
+  .wave{display:flex;align-items:center;gap:3px;height:44px;margin:12px 0}
+  .wave span{background:var(--muted);width:3px;border-radius:3px}
+  .player-progress{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+  .progress{height:4px;background:var(--line);border-radius:4px;margin:6px 0 12px;position:relative}
+  .progress::after{content:"";position:absolute;inset:0;width:25%;background:var(--orange);border-radius:4px}
+  .ctrl{display:flex;justify-content:center;gap:14px;align-items:center}
+  .round{width:30px;height:30px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text)}
+  .round:hover{background:var(--line)}
+  .round.big{width:44px;height:44px}
+
+  button{cursor:pointer;border:none;border-radius:10px;font-size:14px;font-weight:600;color:var(--text);
+    background:var(--panel2);border:1px solid var(--line);padding:13px;transition:.15s}
+  button:hover{background:var(--line)}
+  button.primary{background:var(--orange);color:#fff}
+  button.primary:hover{background:var(--orange-d)}
+  button.ghost{background:transparent}
+  button.small{padding:8px 16px;font-size:13px}
+
+  .file{margin:8px 0 4px;font-size:14px;font-weight:600}
+  .preview{display:flex;align-items:center;gap:12px;margin-top:10px}
+  .preview button{padding:8px 14px;font-size:12px}
+  .preview span{margin-left:auto;color:var(--muted);font-size:12px}
+  .change{position:relative;padding:15px;font-size:16px;letter-spacing:.6px}
+  .change .mini{font-size:11px;font-weight:400;opacity:.9;display:block;margin-top:2px}
+
+  .note{display:flex;gap:10px;color:var(--muted);font-size:12px;line-height:1.5;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:14px;align-items:flex-start}
+  .note b{color:var(--text)}
+
+  .toasts{position:absolute;bottom:20px;display:flex;flex-direction:column-reverse;gap:10px}
+  .toast{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--green);
+    border-radius:10px;padding:12px 16px;font-size:13px;max-width:280px;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+  .toast.err{border-left-color:var(--red)}
+  .toast button{margin-top:8px}
+  .toast p{color:var(--muted);font-size:12px;margin-top:4px}
+
+  .footer{display:flex;align-items:center;gap:18px;margin-top:auto;padding-top:8px}
+  .footer a{color:var(--muted);text-decoration:none;font-size:12px;display:flex;align-items:center;gap:6px}
+  .footer a:hover{color:var(--text)}
+  .footer .ver{margin-left:auto;color:var(--muted);font-size:12px}
+  .coffee{background:#3a2a12;color:#ffd79b}
+  .coffee:hover{background:#4a3716}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="sidebar">
+    <div class="logo">cmf</div>
+    <div class="nav">
+      <a href="#" class="active" onclick="return nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 18V6l12-2v11"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        Ringtone <small>Active</small>
+      </a>
+      <a href="#" onclick="return nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="6"/><path d="M12 2a6 6 0 0 0-6 6"/><path d="M12 22a6 6 0 0 0 6-6"/></svg>
+        Watch
+      </a>
+    </div>
+    <div class="nav-bottom">
+      <a href="#" onclick="return nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>
+        About
+      </a>
+      <a href="#" onclick="return nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-1-3.3l2-1.5-2-2-2 1.5A7 0 0 0 12 6.7 7 7 0 0 0 9 6.9L6.6 5 5 8l1.9 1.8A7 7 0 0 0 6 12"/></svg>
+        Settings
+      </a>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="head">
+      <h1>CMF Ringtone Tool</h1>
+      <div class="status"><span class="dot"></span> Watch Pro 2 · Connected via Bluetooth</div>
+    </div>
+
+    <div class="grid">
+      <div class="col">
+        <div class="card">
+          <h2>CURRENT RINGTONE</h2>
+          <div class="big">Ring 1</div>
+          <div class="wave" id="wave1"></div>
+          <div class="player-progress"><span id="t1">00:07 / 00:24</span><span>00:24</span></div>
+          <div class="progress"></div>
+          <div class="ctrl">
+            <div class="round">⏮</div>
+            <div class="round big">⏸</div>
+            <div class="round">⏭</div>
+          </div>
+        </div>
+        <div class="toast" id="ok">
+          ✓ Ringtone changed successfully.
+          <p>Your new ringtone is now installed on your Watch&nbsp;Pro&nbsp;2.</p>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="card row">
+          <div class="row" style="gap:10px">
+            <svg width="16" viewBox="0 0 24 24" fill="none" stroke="#8b93a1" stroke-width="2"><path d="M6.5 16.5a2 2 0 1 1 0-4h11a6 6 0 1 1 0 12"/></svg>
+            <span class="big" style="font-size:14px">Connected via Bluetooth</span>
+          </div>
+          <button class="ghost small" style="color:var(--muted)">Disconnect</button>
+        </div>
+
+        <button class="primary">⤴ Choose Ringtone (WAV, MP3, …)</button>
+        <div class="card">
+          <div class="file">Forza_Horizon_5_Menu.wav</div>
+          <div class="wave" id="wave2" style="height:36px"></div>
+          <div class="preview">
+            <button class="small">▶ Preview</button>
+            <span>00:31</span>
+          </div>
+        </div>
+
+        <button class="primary change">
+          ⌚ CHANGE RINGTONE
+          <span class="mini">Converting &amp; Transferring (87%)</span>
+        </button>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <button>🔄 Restore Original Ringtone</button>
+          <button>📁 Backup Current Ringtone</button>
+        </div>
+
+        <div class="note">
+          <span style="color:#4cc2ff">ℹ</span>
+          <div><b>Ringtones are automatically converted</b> to the required ACT format and transferred to the watch over Bluetooth.</div>
+        </div>
+
+        <div class="toast err" style="align-self:flex-end;max-width:230px" id="err">
+          ✕ Ringtone change failed.
+          <p>Your original ringtone has not been modified.</p>
+          <button class="small">Retry</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <a href="https://github.com/tirodz/CMF-Ringtone-Tool">⚭ github.com/tirodz</a>
+      <button class="coffee small">🥤 Buy Me a Coffee</button>
+      <span class="ver">Version 1.0.0</span>
+    </div>
+  </main>
+</div>
+
+<script>
+  function bars(id, n, h){ const w=document.getElementById(id); if(!w) return;
+    for(let i=0;i<n;i++){const s=document.createElement('span');
+      const v=(Math.sin(i*.45)*.5+.5)*h*.8+h*.2; s.style.height=v+'px'; w.appendChild(s);
+      if(i%6===0) s.style.background='var(--orange)';}}
+  bars('wave1', 40, 44); bars('wave2', 46, 36);
+
+  function nav(a){ document.querySelectorAll('.nav a,.nav-bottom a').forEach(x=>x.classList.remove('active'));
+    a.classList.add('active'); return false }
+
+  setTimeout(()=>document.getElementById('ok').style.display='none', 6000);
+  document.getElementById('err').style.display='none';
+
+  // Backend hook: command stub ready for real BLE/encoder logic
+  if (window.__TAURI__) __TAURI__.invoke('ping').catch(()=>{});
+</script>
+</body>
+</html>
