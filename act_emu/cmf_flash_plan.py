@@ -10,20 +10,24 @@ Computes, from original.bin + a custom ring1.act (same 15556-byte size):
 
 Run: python3 cmf_flash_plan.py original.bin custom_ring1.act
 """
-import struct, sys, binascii
+import os, struct, sys, binascii
 
-sys.path.insert(0, '/workspace/project/act_emu')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fwmod
+import fw_registry
 
-RING1_OFF = 0x5c80
-RING1_SIZE = 0x3cc4  # 15556
-RING1_END = RING1_OFF + RING1_SIZE   # 0x9944
-WIN_START = 0x5a00                   # 512-aligned start covering ring1
-WIN_END = (RING1_END + 511) & ~511   # 0x9a00
-RING1_TBL_ENTRY = 8                  # ring1 is the 8th sdfs entry
-TBL_F4_OFF = 0x18
-TBL_F5_OFF = 0x1c
-ENTRY_F5_OFF = (RING1_TBL_ENTRY + 1) * 0x20 + 0x1c   # 0x13c
+# All layout constants come from the firmware compatibility registry
+# (fw_registry.py).  This planner refuses firmware versions it does not know.
+LAYOUT = fw_registry.LAYOUT_1_0_0_73
+RING1_OFF = LAYOUT.ring1_off
+RING1_SIZE = LAYOUT.ring1_size
+RING1_END = RING1_OFF + RING1_SIZE
+WIN_START = RING1_OFF & ~(LAYOUT.sector - 1)
+WIN_END = (RING1_END + LAYOUT.sector - 1) & ~(LAYOUT.sector - 1)
+RING1_TBL_ENTRY = LAYOUT.sdfs_entry_index
+TBL_F4_OFF = LAYOUT.tbl_f4_off
+TBL_F5_OFF = LAYOUT.tbl_f5_off
+ENTRY_F5_OFF = (RING1_TBL_ENTRY + 1) * 0x20 + 0x1c
 
 
 def sum32(b):
@@ -32,6 +36,8 @@ def sum32(b):
 
 
 def main():
+    outdir = os.environ.get('FLASH_PLAN_OUT', 'flash_plan')
+    os.makedirs(outdir, exist_ok=True)
     orig_path, custom_path = sys.argv[1], sys.argv[2]
     aota = fwmod.Aota(open(orig_path, 'rb').read())
     part = fwmod.lzma_unpack(aota.get('sdfs_k.bin'))
@@ -69,10 +75,10 @@ def main():
     assert sum32(new_data) == f5
     print("checksum self-check: OK")
 
-    open('/tmp/stage_window.bin', 'wb').write(win)
-    open('/tmp/stage_table.bin', 'wb').write(tbl)
+    open(os.path.join(outdir, 'stage_window.bin'), 'wb').write(win)
+    open(os.path.join(outdir, 'stage_table.bin'), 'wb').write(tbl)
 
-    def stage_cmds(content, base=0x380027bd):
+    def stage_cmds(content, base=LAYOUT.stage_buffer):
         """mwb for bytes 0..2, mww for the rest (padded to a word boundary)."""
         cmds = []
         for i in range(3):
@@ -88,28 +94,28 @@ def main():
         return cmds
 
     cmds = stage_cmds(win)
-    with open('/tmp/mww_stage.txt', 'w') as f:
+    with open(os.path.join(outdir, 'mww_stage.txt'), 'w') as f:
         f.write('\n'.join(cmds))
-    print(f"mww commands: {len(cmds)}  (/tmp/mww_stage.txt)")
+    print(f"mww commands: {len(cmds)}  ({outdir}/mww_stage.txt)")
 
     tbl_cmds = stage_cmds(tbl)
-    with open('/tmp/mww_table.txt', 'w') as f:
+    with open(os.path.join(outdir, 'mww_table.txt'), 'w') as f:
         f.write('\n'.join(tbl_cmds))
-    print(f"table mww commands: {len(tbl_cmds)}  (/tmp/mww_table.txt)")
+    print(f"table mww commands: {len(tbl_cmds)}  ({outdir}/mww_table.txt)")
 
     print()
     print("=" * 70)
     print("EXECUTION PLAN (PBASE = sdfs_k FTL offset from recon)")
     print("=" * 70)
-    print("1. recon: mdw 0x1000000 0x40 -> boot info -> param_save_addr (part table)")
+    print(f"1. recon: mdw {LAYOUT.boot_info_addr:#x} 0x40 -> boot info -> part table")
     print("2. recon: mdw <part_table> 0x100 -> find sdfs_k entry -> PBASE")
-    print("3. verify: snandr (PBASE+0x5c80) 0x200  -> compare with stock ring1 bytes")
-    print("4. backup: sdfs ring1.act 15556")
-    print("5. stage ringtone window: run /tmp/mww_stage.txt (4099 cmds)")
+    print(f"3. verify: snandr (PBASE+{RING1_OFF:#x}) 0x200 -> compare with stock ring1 bytes")
+    print(f"4. backup: sdfs ring1.act {RING1_SIZE}")
+    print(f"5. stage ringtone window: run {outdir}/mww_stage.txt")
     print(f"6. write:  snandw (PBASE+{WIN_START:#x}) {len(win):#x}")
-    print("7. stage table sector: run /tmp/mww_table.txt (131 cmds)")
+    print(f"7. stage table sector: run {outdir}/mww_table.txt")
     print(f"8. write:  snandw PBASE 0x200")
-    print("9. verify: sdfs ring1.act 15556 -> compare; make a test call")
+    print(f"9. verify: sdfs ring1.act {RING1_SIZE} -> compare; make a test call")
 
 
 if __name__ == '__main__':

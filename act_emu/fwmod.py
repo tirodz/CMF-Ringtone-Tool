@@ -140,9 +140,19 @@ class Sdfs:
 
 
 def rebuild(aota, replacements, sdfs_replacements):
+    """Rebuild the image with per-file replacements inside sdfs_k.
+
+    Validates the source image first and refuses unknown sdfs entry names -
+    unknown layouts are never silently modified.
+    """
+    aota.verify()
     new_parts = {}
     if sdfs_replacements:
         sdfs = Sdfs(lzma_unpack(aota.get('sdfs_k.bin')))
+        known = {f['name'] for f in sdfs.files}
+        unknown = set(sdfs_replacements) - known
+        if unknown:
+            raise KeyError(f'sdfs entries not present in source: {sorted(unknown)}')
         rebuilt = sdfs.build(sdfs_replacements)
         new_parts['sdfs_k.bin'] = lzma_pack(rebuilt)
     out = bytearray(aota.data[:DIR_OFF] + aota.data[DIR_OFF + aota.nfiles*0x20:HDR_SIZE])
