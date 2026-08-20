@@ -1,4 +1,4 @@
-name: CI
+name: Make Sure It Still Builds
 
 # Build check for the Tauri app on every push/PR. Skips cleanly until the
 # app source exists, so you're free to push backend code meanwhile.
