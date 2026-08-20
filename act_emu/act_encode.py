@@ -93,10 +93,19 @@ def lpc_to_lsf(a):
 
 
 def frame_lsf(samples):
-    """160 samples -> (16 LSFs in Hz, lpc coefficients a)."""
+    """160 samples -> (16 LSFs in Hz, lpc coefficients a).
+
+    A G.729-style lag window on the autocorrelation (plus a white-noise floor
+    on r[0]) keeps the analysis well-conditioned on periodic/tonal input;
+    without it pure sines degenerate into poles on the unit circle, near-zero
+    residual, and an empty fixed codebook."""
     n = len(samples)
     r = [sum(samples[i] * samples[i + k] for i in range(n - k)) for k in range(17)]
-    a = levinson(r, 16)
+    w = [1.0 if k == 0 else math.exp(-0.5 * (2 * math.pi * 60 * k / 16000.0) ** 2)
+         for k in range(17)]
+    rw = [r[k] * w[k] for k in range(17)]
+    rw[0] *= 1.000001
+    a = levinson(rw, 16)
     return lpc_to_lsf(a), a
 
 
@@ -200,6 +209,45 @@ def residual_autocorr_lag(res, lo=18, hi=143):
     return max(range(lo, min(hi, len(res) - 1)), key=ac)
 
 
+def pitch_candidates(res, max_cands=3, min_corr=0.55):
+    """Normalized-autocorrelation pitch search over the decoder's lag range.
+
+    Returns up to `max_cands` distinct (fractional_lag, corr) candidates,
+    refined to sub-sample precision with parabolic interpolation.
+    """
+    n = len(res)
+    energy = sum(x * x for x in res)
+    if energy < 1e3:
+        return []
+    hi = min(LAG_MAX, n - 2)
+    scores = []
+    for lag in range(LAG_MIN, hi + 1):
+        num = sum(res[i] * res[i - lag] for i in range(lag, n))
+        d1 = sum(x * x for x in res[lag:])
+        d0 = sum(x * x for x in res[:n - lag])
+        den = math.sqrt(d1 * d0)
+        c = num / den if den > 0 else 0.0
+        scores.append((lag, c))
+    scores.sort(key=lambda t: -t[1])
+    top = []
+    for lag, c in scores:
+        if c < min_corr:
+            break
+        if all(abs(lag - t[0]) > 4 for t in top):
+            # parabolic refinement on the un-normalized autocorr envelope
+            if LAG_MIN < lag < hi:
+                def ac(k):
+                    return sum(res[i] * res[i + k] for i in range(n - k))
+                a, b, cc = ac(lag - 1), ac(lag), ac(lag + 1)
+                denom = a - 2 * b + cc
+                frac = 0.5 * (a - cc) / denom if denom else 0.0
+                lag = lag + max(-0.5, min(0.5, frac))
+            top.append((lag, c))
+        if len(top) >= max_cands:
+            break
+    return top
+
+
 def place_pulses(residual, n_tracks=5, window=80):
     """Given an 80-sample residual subframe, choose 5 codebook fields.
 
@@ -267,29 +315,76 @@ def build_pulse_map():
 INIT_LSP = [335, 628, 1110, 1641, 2108, 2592, 3053, 3512, 3978, 4423, 4942, 5429, 5977, 6421, 6921, 7250]
 
 
-def pitch_field_from_lag(lag):
-    """Inverse of the sf0 pitch mapping recovered from DVD162:
-    lag = 29 + (v+2)/3 (v < 390, 1/3-sample fractional steps),
-    lag = v - 230 (v >= 390). Inverse: v = 3*(lag-29) - 2, or v = lag + 230."""
-    if lag < 160:
-        return max(0, min(389, int(round(3 * (lag - 29) - 2))))
-    return lag + 230
+# ---------------------------------------------------------------------------
+# Pitch / adaptive codebook field mappings.
+#
+# Recovered from DVD162 in the original decoder (a1_act_d.a) and verified
+# dynamically by sweeping every field value through the emulated decoder and
+# recording the (lag, frac) arguments passed to the adaptive-excitation copy
+# routine (DVD190).  "realized lag" is the effective fractional delay the
+# decoder applies (lag_int + frac/3, frac in {-1, 0, +1}).
+# ---------------------------------------------------------------------------
+
+# DVD106 pitch-gain table (Q13): field (4 bits) -> gain applied to the
+# adaptive excitation.  Verified by table dump + dynamic behavior.
+PITCH_GAIN_TABLE = [0, 3277, 6553, 8192, 9830, 11468, 12287, 13106,
+                    13926, 14745, 15564, 16385, 17202, 18021, 18840, 19660]
+
+LAG_MIN, LAG_MAX = 29, 281  # decoder search bounds (samples @ 16 kHz)
 
 
-def lag_from_pitch_field(v):
+def realized_lag_sf0(v):
+    """field 6 (9 bits) -> effective fractional lag applied by the decoder."""
     if v < 390:
         return 29 + (v + 2) / 3.0
-    return v - 230
+    return float(v - 230)
 
 
-def sf1_field_from_delta(delta):
-    """delta = lag1 - lag0. v<=61: lag1 = lag0 - 1 + (v+2)/3; v>61: unchanged."""
-    if delta == 0:
-        return 62
-    v = int(round(3 * (delta + 1) - 2))
-    if 0 <= v <= 61:
-        return v
-    return 62
+def sf0_field_for_lag(target):
+    """Inverse of realized_lag_sf0: best 9-bit field for a target lag."""
+    cands = set()
+    if target <= 160.5:
+        v = round(3 * (target - 29) - 2)
+        for vv in (v - 1, v, v + 1):
+            if 0 <= vv <= 389:
+                cands.add(vv)
+    if target >= 158.5:
+        v = round(target) + 230
+        for vv in (v - 1, v, v + 1):
+            if 390 <= vv <= 511:
+                cands.add(vv)
+    if not cands:
+        cands = {0 if target < 29 else 511}
+    return min(cands, key=lambda x: abs(realized_lag_sf0(x) - target))
+
+
+def sf1_base(lag0_int):
+    """Decoder clamp derived from DVD162 common tail:
+    sl = max(30, lag0_int - 10), capped to 262 (= 281 - 19)."""
+    sl = max(30, lag0_int - 10)
+    return 262 if sl + 19 > 281 else sl
+
+
+def realized_lag_sf1(v, lag0_int):
+    """field 14 (6 bits) -> effective fractional lag for the second subframe.
+    v <= 61: lag1 = base + (v+2)/3 - 1;  v in {62, 63}: lag1 = lag0_int + 1."""
+    if v <= 61:
+        return sf1_base(lag0_int) + (v + 2) / 3.0 - 1
+    return float(lag0_int + 1)
+
+
+def sf1_field_for_lag(target, lag0_int):
+    """Inverse of realized_lag_sf1 for a target lag given this frame's sf0."""
+    base = sf1_base(lag0_int)
+    def rl(v):
+        if v <= 61:
+            return base + (v + 2) / 3.0 - 1
+        return float(lag0_int + 1)
+    return min(range(64), key=lambda v: abs(rl(v) - target))
+
+
+NO_PITCH_SF0 = 368   # field value used when the adaptive path is disengaged
+NO_PITCH_SF1 = 62    # (with pitch gain 0 the lag value is inert anyway)
 
 
 GAIN_CAL = None
@@ -313,11 +408,17 @@ def gain_field_for(target_ratio, cal, sf):
     return min(range(32), key=lambda v: abs(vals[v] - target_ratio))
 
 
+FIELD_MAX = None  # set lazily from bits
+
+
 class Encoder:
-    def __init__(self, oracle=None):
-        """oracle: OracleDecoder instance (locked-step verification)."""
+    def __init__(self, oracle=None, refine=True):
+        """oracle: OracleDecoder instance (locked-step verification).
+        refine: closed-loop analysis-by-synthesis field refinement."""
         self.oracle = oracle
         self.prev_dev = [0] * 16   # deviation from INIT_LSP (decoder state)
+        self.refine = refine
+        self._prev_lag = None
 
     def encode_frame(self, samples, mode=0):
         """160 samples -> 20-byte v4 frame."""
@@ -332,8 +433,10 @@ class Encoder:
                 best = (err, m, idx, dec)
         err, m, lsp_idx, dec_lsp = best
         self.prev_dev = [d - i for d, i in zip(dec_lsp, INIT_LSP)]
-        # 3. residual via the exact Levinson LPC of the target
-        res = lpc_filter(samples, a)
+        # 3. residual through the QUANTIZED decoder-side filter (not the raw
+        # analysis LPC) so the excitation matches what the decoder synthesizes.
+        a_q = lsf_to_lpc(dec_lsp)
+        res = lpc_filter(samples, a_q)
         # 4. pulses from residual peaks per subframe
         cb0 = place_pulses(res[0:80])
         cb1 = place_pulses(res[80:160])
@@ -347,57 +450,120 @@ class Encoder:
             return gain_field_for(target, cal, sf)
         g0 = gain_for(res[0:80], 0)
         g1 = gain_for(res[80:160], 1)
-        # pitch: estimate the lag on the whole-frame residual (the 80-sample
-        # subframe window is too short for low pitches). The decoder's lag
-        # range is 29..281 samples (16 kHz).
-        def frame_pitch(seg):
-            n = len(seg)
-            energy = sum(x * x for x in seg)
-            if energy < 1e3:
-                return 0, 0.0
-            best, lag = 0.0, 0
-            for lo in range(29, min(281, n - 1)):
-                num = sum(seg[i] * seg[i - lo] for i in range(lo, n))
-                den = math.sqrt(sum(x * x for x in seg[lo:]) * sum(x * x for x in seg[:n - lo]))
-                if den > 0 and num / den > best:
-                    best = num / den
-                    lag = lo
-            return lag, best
-        lag0, c0 = frame_pitch(res)
-        # Pitch engages only for voiced/speech-range content (lag >= 29
-        # samples at 16 kHz, i.e. fundamental <= ~550 Hz). Higher-pitch tones
-        # are carried by the LSP alone; forcing pitch there produced the
-        # octave/harmonic failures in the melody test (554 -> 1375 etc.).
-        pitch_ok = lag0 and c0 >= 0.5 and lag0 >= 29
-        v0 = pitch_field_from_lag(lag0) if pitch_ok else 368
-        v1 = 62
-        pg0 = pg1 = max(0, min(12, int(round(c0 * 12)))) if pitch_ok else 0
-        fields = ([m] + lsp_idx + [v0, pg0] + cb0 + [g0, v1, pg1] + cb1 + [g1])
-        fr = pack_fields(fields)
-        # 6. closed-loop gain refinement via oracle (if attached)
+        # --- pitch / adaptive codebook -------------------------------------
+        # Candidate lags from the full-frame residual autocorrelation; with an
+        # oracle attached the winner is chosen by waveform SNR against the
+        # actual decoded output, otherwise by correlation strength.
+        cands = pitch_candidates(res)
+
+        def build(v0, v1, pg):
+            return ([m] + lsp_idx + [v0, pg] + cb0 + [g0, v1, pg] + cb1 + [g1])
+
+        trial = []
+        trial.append((None, NO_PITCH_SF0, NO_PITCH_SF1, 0))
+        for lag, c in cands:
+            v0 = sf0_field_for_lag(lag)
+            lag0_int = int(realized_lag_sf0(v0))
+            v1 = sf1_field_for_lag(lag, lag0_int)
+            pg = max(0, min(15, int(round(c * 11))))
+            trial.append((lag, v0, v1, pg))
+
+        if self.oracle is not None and trial:
+            target = list(samples)
+            self._keep = self.oracle.snapshot()
+            best = None
+            for lag, v0, v1, pg in trial:
+                s = self._snr(build(v0, v1, pg), target)
+                # pitch-continuity prior: keep the lag close to the previous
+                # frame's realized lag so phase locks across the sequence
+                # (prevents harmonic mis-lock over time).
+                if lag is not None and self._prev_lag is not None and \
+                        abs(lag - self._prev_lag) < 1.5:
+                    s += 0.6
+                if best is None or s > best[0]:
+                    best = (s, lag, v0, v1, pg)
+            s, lag, v0, v1, pg = best
+            if pg > 0:
+                for dpg in (-2, -1, 1, 2):
+                    pgn = pg + dpg
+                    if 0 <= pgn <= 15:
+                        s2 = self._snr(build(v0, v1, pgn), target)
+                        if s2 > s:
+                            s, pg = s2, pgn
+            pg0 = pg1 = pg
+            if pg > 0:
+                self._prev_lag = realized_lag_sf0(v0)
+            else:
+                self._prev_lag = None
+        else:
+            if cands:
+                lag, c = cands[0]
+                v0 = sf0_field_for_lag(lag)
+                lag0_int = int(realized_lag_sf0(v0))
+                v1 = sf1_field_for_lag(lag, lag0_int)
+                pg0 = pg1 = max(0, min(15, int(round(c * 11))))
+            else:
+                v0, v1, pg0, pg1 = NO_PITCH_SF0, NO_PITCH_SF1, 0, 0
+
+        fields = build(v0, v1, pg0)
+        # 6. closed-loop refinement via oracle (if attached)
         if self.oracle is not None:
-            target_rms = (sum(x*x for x in samples) / len(samples)) ** 0.5
-            if target_rms > 0.5:
-                for _ in range(5):
-                    snap = self.oracle.snapshot()
-                    dec = self.oracle.decode_frame(fr)
-                    got = (sum(x*x for x in dec) / len(dec)) ** 0.5
-                    self.oracle.restore(snap)
-                    if got < 1:
+            fields = self._oracle_refine(fields, list(samples))
+            self.oracle.decode_frame(pack_fields(fields))
+        return pack_fields(fields), fields
+
+    def _snr(self, fields, target):
+        """Trial-decode one frame and return waveform SNR vs target (oracle state
+        untouched)."""
+        dec = self.oracle.decode_frame(pack_fields(fields))
+        self.oracle.restore(self._keep)
+        err = sum((a - b) ** 2 for a, b in zip(target, dec)) / len(target)
+        sig = sum(x * x for x in target) / len(target)
+        return -10 * math.log10(err / sig) if sig > 0 else 99
+
+    # fields eligible for coordinate-descent refinement: cb, pitch, gains
+    REFINE_FIELDS = (6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21)
+    REFINE_OFFSETS = (256, 128, 64, 32, 16, 8, 4, 2, 1)
+    REFINE_PASSES = 2
+
+    def _oracle_refine(self, fields, target):
+        """Coordinate descent over cb/pitch/gain fields against decoded SNR.
+
+        Uses one oracle snapshot per frame (state restored after every trial),
+        then the caller advances the state with the refined frame.
+        """
+        import bits
+        global FIELD_MAX
+        if FIELD_MAX is None:
+            FIELD_MAX = [(1 << w) - 1 for w in bits.FIELD_WIDTHS]
+        self._keep = self.oracle.snapshot()
+        fields = self._oracle_refine_at(fields, target)
+        self.oracle.restore(self._keep)
+        return fields
+
+    def _oracle_refine_at(self, fields, target):
+        best = self._snr(fields, target)
+        fields = list(fields)
+        for _ in range(self.REFINE_PASSES):
+            improved = False
+            for fi in self.REFINE_FIELDS:
+                lim = FIELD_MAX[fi]
+                base_v = fields[fi]
+                cands = {base_v + d for d in self.REFINE_OFFSETS} | \
+                        {base_v - d for d in self.REFINE_OFFSETS}
+                cands.discard(base_v)
+                cands = sorted(c for c in cands if 0 <= c <= lim)
+                for v in cands:
+                    trial = list(fields)
+                    trial[fi] = v
+                    s = self._snr(trial, target)
+                    if s > best:
+                        best, fields = s, trial
+                        improved = True
                         break
-                    ratio = target_rms / got
-                    import math as _m
-                    db = 20 * _m.log10(ratio)
-                    if abs(db) < 1.5:
-                        break
-                    step0 = max(1, round(db / 3.0))
-                    step1 = max(1, round(db / 3.5))
-                    fields[13] = max(0, min(31, fields[13] + (step0 if ratio > 1 else -step0)))
-                    fields[21] = max(0, min(31, fields[21] + (step1 if ratio > 1 else -step1)))
-                    fr = pack_fields(fields)
-                # final decode advances oracle state with the tuned frame
-                self.oracle.decode_frame(fr)
-        return fr, fields
+            if not improved:
+                break
+        return fields
 
 
 def encode_file(samples, oracle=None):

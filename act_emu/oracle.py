@@ -68,7 +68,11 @@ class OracleDecoder:
                 stream['pos'] += len(chunk)
                 mu.reg_write(UC_ARM_REG_R0, len(chunk))
                 mu.reg_write(UC_ARM_REG_PC, mu.reg_read(UC_ARM_REG_LR))
-        mu.hook_add(UC_HOOK_CODE, hook)
+        # Register the handler only on the exact stub/readfn addresses so the
+        # hook does not fire on every instruction (huge speedup for trials).
+        hooks_at = list(stub_addr) + [READFN & ~1]
+        for addr in sorted(hooks_at):
+            mu.hook_add(UC_HOOK_CODE, hook, begin=addr, end=addr)
         self.open()
 
     def call(self, addr, r0, r1=0, r2=0, r3=0, cnt=20000000):
@@ -96,8 +100,14 @@ class OracleDecoder:
         pcm = bytes(self.mu.mem_read(pcm_ptr, nsamp * 2)) if pcm_ptr and nsamp else b''
         return struct.unpack('<%dh' % (len(pcm)//2), pcm)
 
+    # All decoder state lives in the first 0xA000 bytes of the emu RAM region
+    # (state buffer at RAM_BASE, openargs/streamctx/outframe/decparams above),
+    # so snapshots only cover that region instead of the full 2 MiB mapping.
+    SNAP_LEN = 0xA000
+
     def snapshot(self):
-        return (self.mu.context_save(), bytes(self.mu.mem_read(RAM_BASE, RAM_SIZE)),
+        return (self.mu.context_save(),
+                bytes(self.mu.mem_read(RAM_BASE, self.SNAP_LEN)),
                 self.stream['pos'])
 
     def restore(self, snap):
