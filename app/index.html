@@ -5,112 +5,153 @@
 <title>CMF Ringtone Tool</title>
 <style>
   :root{
-    --bg:#121212; --panel:#18181b; --panel2:#1f1f23; --line:#2b2b30;
-    --text:#ffffff; --muted:#9ca3af; --orange:#ff5500; --orange-d:#e04d00;
-    --green:#3ddc84;
+    --bg:#121315; --panel:#181b1f; --panel2:#1e2227; --line:#282d34;
+    --text:#f2f3f5; --muted:#8a93a0; --orange:#ff5500; --orange-d:#e04d00;
+    --green:#3ddc84; --red:#ff5d5d;
   }
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{height:100%;background:var(--bg);color:var(--text);
-    font-family:"Inter","Segoe UI",system-ui,sans-serif;overflow:hidden;user-select:none}
+  html,body{height:100%;background:var(--bg);color:var(--text);overflow:hidden;user-select:none;
+    font-family:"Segoe UI",system-ui,sans-serif}
 
-  /* custom title bar for the borderless window */
-  #titlebar{display:flex;align-items:center;justify-content:space-between;height:32px;
-    padding-left:12px;background:var(--bg);border-bottom:1px solid var(--line);
-    -webkit-app-region:drag;flex-shrink:0}
-  #titlebar span{font-size:11px;color:var(--muted);letter-spacing:1px}
-  #titlebar .btns{display:flex;-webkit-app-region:no-drag}
-  #titlebar .btns div{width:44px;height:32px;display:flex;align-items:center;justify-content:center;
-    color:var(--muted);cursor:pointer;font-family:initial}
+  /* ---------- entrance animations ---------- */
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @keyframes toastin{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+  @keyframes toastout{to{opacity:0;transform:translateY(8px)}}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(61,220,132,.45)}60%{box-shadow:0 0 0 6px rgba(61,220,132,0)}}
+  @keyframes wob{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.55)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .rise{animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
+  .rise-1{animation-delay:.06s}.rise-2{animation-delay:.12s}.rise-3{animation-delay:.18s}
+  .rise-4{animation-delay:.24s}.rise-5{animation-delay:.3s}.rise-6{animation-delay:.36s}
+
+  /* ---------- titlebar ---------- */
+  #titlebar{display:flex;align-items:center;height:36px;padding:0 0 0 12px;background:var(--bg);
+    border-bottom:1px solid var(--line);-webkit-app-region:drag}
+  #titlebar .app-title{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
+  #titlebar .btns{margin-left:auto;display:flex;-webkit-app-region:no-drag}
+  #titlebar .btns div{width:46px;height:36px;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);cursor:pointer;transition:.15s}
   #titlebar .btns div:hover{background:var(--panel2);color:var(--text)}
   #titlebar .btns div.close:hover{background:#c42b1c;color:#fff}
 
-  .app{display:grid;grid-template-columns:170px 1fr;height:calc(100vh - 32px)}
+  .app{display:grid;grid-template-columns:168px 1fr;height:calc(100vh - 36px)}
 
-  .sidebar{background:var(--panel);border-right:1px solid var(--line);
-    display:flex;flex-direction:column;padding:20px 12px}
-  .logo{font-size:30px;font-weight:800;padding:0 10px 22px;letter-spacing:.5px}
+  /* ---------- sidebar ---------- */
+  .sidebar{background:#0e1013;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:20px 12px}
+  .logo{font-size:28px;font-weight:800;padding:0 10px 20px}
   .nav{display:flex;flex-direction:column;gap:2px;flex:1}
-  .nav a{color:var(--muted);text-decoration:none;padding:10px 12px;border-radius:8px;
-    font-size:14px;display:flex;align-items:center;gap:10px;transition:.15s;
-    position:sticky;white-space:nowrap}
-  .nav a:hover{color:var(--text);background:var(--panel2)}
-  .nav a.active{color:var(--orange);background:var(--panel2)}
-  .nav a.active::before{content:"";position:absolute;left:-12px;width:3px;height:22px;background:var(--orange);border-radius:2px}
+  .nav a{color:var(--muted);text-decoration:none;padding:10px 12px;border-radius:8px;font-size:14px;
+    display:flex;align-items:center;gap:10px;position:relative;transition:.15s}
+  .nav a:hover{color:var(--text);background:var(--panel)}
+  .nav a.active{color:var(--orange);background:var(--panel)}
+  .nav a.active::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;
+    background:var(--orange);border-radius:2px}
   .nav a svg{width:16px;height:16px;stroke:currentColor;flex-shrink:0}
 
-  .main{display:flex;flex-direction:column;padding:22px 28px;min-width:0}
-  .heading{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
-  .heading h1{font-size:22px;font-weight:700}
-  .heading span{color:var(--orange);font-size:13px;font-weight:600}
+  /* ---------- main ---------- */
+  .main{padding:18px 24px;display:flex;flex-direction:column;min-width:0}
+  .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .head h1{font-size:21px;font-weight:700}
+  .conn{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+  .conn .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
 
-  .content{display:flex;flex-direction:column;align-items:center;flex:1;min-height:0}
-  .wave-card{width:100%;max-width:760px}
-  .wave{position:relative;display:flex;align-items:center;justify-content:center;
-    height:150px;margin:16px 0 10px}
-  .wave span{background:var(--orange);width:4px;border-radius:4px;margin:0 2px;flex-shrink:0}
-  .timeline{width:100%;max-width:760px;display:flex;flex-direction:column;gap:6px}
-  .slider{appearance:none;width:100%;height:5px;background:var(--line);border-radius:5px;outline:none;cursor:pointer}
-  .slider::-webkit-slider-thumb{appearance:none;width:14px;height:14px;border-radius:50%;
-    background:var(--orange);border:2px solid #fff;cursor:pointer}
-  .times{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
-  .times b{color:var(--orange);font-weight:600}
+  .grid{display:grid;grid-template-columns:262px 1fr 268px;gap:14px;flex:1;min-height:0}
+  .col{display:flex;flex-direction:column;gap:12px}
 
-  .actions{margin:26px 0;width:100%;max-width:760px;display:flex;justify-content:center;gap:14px}
-  button{border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;
-    padding:13px 24px;color:var(--text);background:var(--panel2);border:1px solid var(--line);transition:.15s}
-  button:hover{background:var(--line)}
-  .primary{background:var(--orange);color:#fff;border:none}
-  .primary:hover{background:var(--orange-d)}
-  .primary:disabled{opacity:.5;cursor:wait}
-  #choose::before{content:"⤴ "}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;transition:.15s}
+  .card:hover{border-color:#32383f}
+  h2{font-size:10px;color:var(--muted);letter-spacing:1.4px;font-weight:600}
+  .big{font-size:15px;font-weight:600;margin-top:3px}
 
-  #status{max-width:760px;width:100%;background:var(--panel);border:1px solid var(--line);
-    border-radius:10px;padding:12px 18px;font-size:13px;color:var(--muted);
-    display:flex;align-items:center;gap:10px}
-  #status.ok{color:var(--orange)}
-  #status.ok::before{content:"✓";font-weight:700}
-  #status.working::before{content:"⟳";animation:spin 1s linear infinite;color:var(--orange)}
-  #status .ble-bar{flex:1;height:4px;background:var(--line);border-radius:4px;overflow:hidden;display:none}
-  #status .ble-bar div{height:100%;width:0;background:var(--orange);transition:width .3s}
-  @keyframes spin{to{transform:rotate(360deg)}}
+  .wave{display:flex;align-items:center;gap:2.5px;height:46px;margin:12px 0 10px}
+  .wave span{width:3px;border-radius:3px;background:var(--text);opacity:.9}
+  .wave.playing span{animation:wob 1.6s ease-in-out infinite;transform-origin:center}
 
-  /* Settings / About pages (placeholder views) */
-  .page{display:none}
-  .page.on{display:block}
-  .page h2{font-size:16px;margin-bottom:14px}
-  .page .opt{display:flex;justify-content:space-between;align-items:center;background:var(--panel);
-    border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-bottom:10px;font-size:14px;max-width:760px}
-  .opt small{color:var(--muted)}
-  .switch{width:38px;height:20px;border-radius:12px;background:var(--line);position:relative;cursor:pointer;transition:.15s}
-  .switch::after{content:"";position:absolute;width:14px;height:14px;border-radius:50%;
-    background:var(--muted);top:3px;left:3px;transition:.15s}
-  .switch.on{background:var(--orange)}
-  .switch.on::after{left:21px;background:#fff}
+  .times{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+  .slider{appearance:none;width:100%;height:4px;background:var(--line);border-radius:4px;outline:none;margin:6px 0 10px}
+  .slider::-webkit-slider-thumb{appearance:none;width:12px;height:12px;border-radius:50%;background:var(--orange);
+    border:2px solid #fff;cursor:pointer;transition:.15s}
+  .slider::-webkit-slider-thumb:hover{transform:scale(1.25)}
+
+  .ctrl{display:flex;justify-content:center;gap:14px;align-items:center}
+  .round{width:28px;height:28px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);transition:.15s}
+  .round:hover{background:var(--line);transform:scale(1.06)}
+  .round.big{width:40px;height:40px}
+
+  button{cursor:pointer;border:1px solid var(--line);border-radius:10px;font-size:13.5px;font-weight:600;
+    color:var(--text);background:var(--panel2);padding:12px 14px;transition:.15s}
+  button:hover{background:var(--line);transform:translateY(-1px)}
+  button:active{transform:translateY(0)}
+  button.primary{background:var(--orange);color:#fff;border-color:transparent}
+  button.primary:hover{background:var(--orange-d)}
+  button.primary:disabled{opacity:.7;cursor:wait}
+  button.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+  button.small{padding:7px 14px;font-size:12px}
+
+  .statusbar{display:flex;justify-content:space-between;align-items:center;font-size:13px}
+  .statusbar .left{display:flex;gap:9px;align-items:center}
+  .file{margin:2px 0 0;font-size:14px;font-weight:600}
+  .preview{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .preview span{margin-left:auto;color:var(--muted);font-size:12px}
+
+  .change{padding:14px;font-size:15px;letter-spacing:.5px;text-transform:uppercase;display:flex;
+    justify-content:space-between;align-items:center}
+  .change .mini{font-size:11px;font-weight:400;text-transform:none;opacity:.95}
+  .change .spin{animation:spin 1s linear infinite;display:none}
+  .change.busy .spin{display:inline-block}
+
+  .note{display:flex;gap:10px;color:var(--muted);font-size:12px;line-height:1.55;align-items:flex-start}
+  .note b{color:var(--text)}
+
+  .toast{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--green);
+    border-radius:10px;padding:11px 14px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.45);
+    animation:toastin .35s cubic-bezier(.2,.7,.3,1) both;display:none}
+  .toast.show{display:block}
+  .toast.hide{animation:toastout .3s forwards}
+  .toast.err{border-left-color:var(--red)}
+  .toast p{color:var(--muted);font-size:12px;margin-top:4px}
+  .toast button{margin-top:9px}
+
+  .footer{display:flex;align-items:center;gap:16px;margin-top:12px}
+  .footer a{color:var(--muted);text-decoration:none;font-size:12px;display:flex;align-items:center;gap:6px;transition:.15s}
+  .footer a:hover{color:var(--text)}
+  .footer .ver{margin-left:auto;color:var(--muted);font-size:12px}
+  .coffee{background:#3a2a12;color:#ffd79b;border-color:#4a3716}
+  .coffee:hover{background:#4a3716}
 </style>
 </head>
 <body>
 
 <div id="titlebar">
-  <span>CMF RINGTONE TOOL</span>
+  <div class="app-title">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ff5500" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+    CMF Ringtone Tool
+  </div>
   <div class="btns">
-    <div id="min">—</div>
-    <div class="close" id="close">✕</div>
+    <div id="min">—</div><div id="max">□</div><div class="close" id="close">✕</div>
   </div>
 </div>
 
 <div class="app">
   <nav class="sidebar">
-    <div class="logo">cmf</div>
-    <div class="nav" id="nav">
-      <a href="#" class="active" data-page="ringtone">
+    <div class="logo rise">cmf</div>
+    <div class="nav rise rise-1">
+      <a href="#" class="active">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 18V6l12-2v11"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        Ringtone
+        Ringtone <small style="color:var(--orange);font-size:11px">Active</small>
       </a>
-      <a href="#" data-page="settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 4.6 13H4.5a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 6 7.6"/></svg>
+      <a href="#" onclick="soon();return false">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M8 5l1 2M15 17l1 2"/></svg>
+        Watch
+      </a>
+    </div>
+    <div class="nav rise rise-2">
+      <a href="#" onclick="soon();return false">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82"/></svg>
         Settings
       </a>
-      <a href="#" data-page="about">
+      <a href="#" onclick="soon();return false">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
         About
       </a>
@@ -118,132 +159,182 @@
   </nav>
 
   <main class="main">
-    <div class="heading"><h1>Ringtone</h1><span>mocked UI — real logic coming</span></div>
+    <div class="head rise rise-1">
+      <h1>CMF Ringtone Tool</h1>
+      <div class="conn"><span class="dot"></span> Watch Pro 2 · Connected via Bluetooth</div>
+    </div>
 
-    <!-- Ringtone page -->
-    <div class="page on" id="page-ringtone">
-      <div class="content">
-        <div class="wave-card">
-          <div class="wave" id="wave"></div>
-        </div>
-        <div class="timeline">
+    <div class="grid">
+      <!-- left: current ringtone player -->
+      <div class="col">
+        <div class="card rise rise-2">
+          <h2>CURRENT RINGTONE</h2>
+          <div class="big">Ring 1</div>
+          <div class="wave" id="wave1"></div>
+          <div class="times"><span id="time-left">00:07 / 00:24</span><span>00:24</span></div>
           <input class="slider" type="range" id="prog" min="0" max="24" value="7">
-          <div class="times"><span>00:07 / 00:24</span><span><b>RING 1</b></span></div>
+          <div class="ctrl">
+            <div class="round" title="Previous">⏮</div>
+            <div class="round big" id="play">▶</div>
+            <div class="round" title="Next">⏭</div>
+          </div>
+        </div>
+        <div class="toast show rise rise-3" id="ok">
+          ✓ Ringtone changed successfully.
+          <p>Your new ringtone is now installed on your Watch Pro 2.</p>
+        </div>
+      </div>
+
+      <!-- center: conversion & transfer -->
+      <div class="col">
+        <div class="card statusbar rise rise-2">
+          <div class="left">
+            <svg width="15" viewBox="0 0 24 24" fill="none" stroke="#8a93a0" stroke-width="2"><path d="M6.5 16.5a2 2 0 1 1 0-4h11a6 6 0 1 1 0 12"/></svg>
+            Connected via Bluetooth
+          </div>
+          <button class="ghost small" id="disconnect">Disconnect</button>
         </div>
 
-        <div class="actions">
-          <button class="primary" id="choose">Choose Ringtone</button>
+        <div class="card rise rise-3">
+          <button class="primary" id="choose" style="width:100%">⤴ Choose Ringtone (WAV, MP3, …)</button>
+          <div class="file" id="file-name" style="display:none;margin-top:12px">Forza_Horizon_5_Menu.wav</div>
+          <div class="wave" id="wave2" style="display:none;height:34px;margin:8px 0 0"></div>
+          <div class="preview" id="preview" style="display:none">
+            <button class="small" id="preview-btn">▶ Preview</button>
+            <span>00:31</span>
+          </div>
         </div>
 
-        <div id="status">Ready to connect.</div>
+        <button class="primary change rise rise-4" id="change">
+          <span>⌚ Change Ringtone</span>
+          <span class="mini" id="change-mini"></span>
+          <span class="spin" id="change-spin">⟳</span>
+        </button>
+      </div>
+
+      <!-- right: safety + info -->
+      <div class="col">
+        <button class="rise rise-3">🔄 Restore Original Ringtone</button>
+        <button class="rise rise-4">📁 Backup Current Ringtone</button>
+        <div class="card note rise rise-5">
+          <span style="color:#4cc2ff">ℹ</span>
+          <div><b>Ringtones are automatically converted</b> to the required ACT format and transferred to the watch over Bluetooth.</div>
+        </div>
+        <div class="toast err rise rise-6" id="err">
+          ✕ Ringtone change failed.
+          <p>Your original ringtone has not been modified.</p>
+          <button class="small" id="retry">Retry</button>
+        </div>
       </div>
     </div>
 
-    <!-- Settings page -->
-    <div class="page" id="page-settings">
-      <h2>Settings</h2>
-      <div class="opt">
-        <div>Auto-update <br><small>Keep the app up to date from GitHub Releases</small></div>
-        <div class="switch on" onclick="this.classList.toggle('on')"></div>
-      </div>
-      <div class="opt">
-        <div>Check now <br><small>Look for a newer version right away</small></div>
-        <button id="update-now" style="padding:8px 16px;font-size:12px">Check</button>
-      </div>
-    </div>
-
-    <!-- About page -->
-    <div class="page" id="page-about">
-      <h2>About</h2>
-      <div class="opt">
-        <div>CMF Ringtone Tool <br><small>Custom ringtones for the CMF Watch Pro 2 — GPL-3.0</small></div>
-        <span id="ver" style="color:var(--muted);font-size:12px">v1.0.0</span>
-      </div>
-      <div class="opt">
-        <div>Source <br><small>github.com/tirodz/CMF-Ringtone-Tool</small></div>
-        <button style="padding:8px 16px;font-size:12px" onclick="openRepo()">Open</button>
-      </div>
+    <div class="footer rise rise-6">
+      <a href="#" onclick="openRepo();return false">
+        <svg width="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+        github.com/tirodz
+      </a>
+      <button class="coffee small">🥤 Buy Me a Coffee</button>
+      <span class="ver">Version 1.0.0</span>
     </div>
   </main>
 </div>
 
 <script>
-  // ----- generic waveform (orange bars) -----
-  const wave = document.getElementById('wave');
-  for(let i=0;i<120;i++){
-    const s = document.createElement('span');
-    const v = (Math.sin(i*.31)*.5+.5)*110+12;
-    s.style.height = v+'px';
-    if(i%8===0) s.style.opacity = '.85';
-    wave.appendChild(s);
+  // ---------- waveforms ----------
+  function buildWave(id, n, h){
+    const w = document.getElementById(id);
+    for(let i=0;i<n;i++){
+      const s = document.createElement('span');
+      s.style.height = ((Math.sin(i*.42)*.5+.5)*h*.85+h*.15)+'px';
+      s.style.animationDelay = (i*0.045)+'s';
+      w.appendChild(s);
+    }
+    return w;
   }
+  const w1 = buildWave('wave1', 44, 42);
+  const w2 = buildWave('wave2', 60, 30);
 
-  // ----- timeline -----
+  // ---------- player mock ----------
   const prog = document.getElementById('prog');
   const fmt = s => '00:'+String(s).padStart(2,'0');
-  const timesEl = document.querySelector('.times span');
-  prog.addEventListener('input', e => timesEl.textContent = fmt(e.target.value)+' / 00:24');
+  const timeLeft = document.getElementById('time-left');
+  let playing = false, pos = 7, timer = null;
+  const playBtn = document.getElementById('play');
+  function sync(){ timeLeft.textContent = fmt(pos)+' / 00:24'; prog.value = pos; }
+  playBtn.onclick = () => {
+    playing = !playing;
+    playBtn.textContent = playing ? '⏸' : '▶';
+    w1.classList.toggle('playing', playing);
+    if(playing){
+      timer = setInterval(() => { pos = pos >= 24 ? 0 : pos+1; sync(); }, 1000);
+    } else clearInterval(timer);
+  };
+  prog.addEventListener('input', e => { pos = +e.target.value; sync(); });
 
-  // ----- navigation -----
-  const navEl = document.getElementById('nav');
-  navEl.addEventListener('click', e => {
-    e.preventDefault();
-    const a = e.target.closest('a');
-    if(!a) return;
-    navEl.querySelectorAll('a').forEach(x=>x.classList.remove('active'));
-    a.classList.add('active');
-    document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
-    document.getElementById('page-'+a.dataset.page).classList.add('on');
-  });
-
-  // ----- mocked application flow -----
-  const status = document.getElementById('status');
+  // ---------- mocked app flow ----------
   const choose = document.getElementById('choose');
-  function setStatus(txt, cls){
-    status.className = cls || '';
-    status.innerHTML = txt;
-  }
+  const change = document.getElementById('change');
+  const mini = document.getElementById('change-mini');
+  const ok = document.getElementById('ok');
+  const err = document.getElementById('err');
+
   choose.addEventListener('click', () => {
-    choose.disabled = true;
-    setStatus('Converting audio…', 'working');
-    setTimeout(() => {
-      setStatus('Transferring via BLE <div class="ble-bar" style="display:block"><div></div></div>', 'working');
-      const bar = status.querySelector('.ble-bar div');
-      let p = 0;
-      const t = setInterval(() => {
-        p = Math.min(p + 25, 100); bar.style.width = p + '%';
-        if(p === 100){
-          clearInterval(t);
-          setStatus('Ringtone changed successfully. New tone active.', 'ok');
-          choose.disabled = false;
-        }
-      }, 400);
-    }, 1800);
+    document.getElementById('file-name').style.display = 'block';
+    document.getElementById('wave2').style.display = 'flex';
+    document.getElementById('preview').style.display = 'flex';
+    ok.classList.remove('show');
   });
 
-  // ----- auto-update scaffold (real once signing is configured) -----
-  document.getElementById('update-now').addEventListener('click', async e => {
-    if (window.__TAURI__ && __TAURI__.updater) {
-      try {
-        const u = await __TAURI__.updater.check();
-        setTimeout(()=>{ e.target.textContent = u ? 'New version available' : 'You are up to date'; }, 400);
-        return;
-      } catch { e.target.textContent = 'Not signed yet — scaffold'; return; }
-    }
-    e.target.textContent = 'Scaffold (works in the app)';
+  document.getElementById('preview-btn').onclick = function(){
+    this.textContent = this.textContent.startsWith('▶') ? '⏸ Playing…' : '▶ Preview';
+    w2.classList.toggle('playing');
+  };
+
+  change.addEventListener('click', () => {
+    change.disabled = true; change.classList.add('busy');
+    err.classList.remove('show'); ok.classList.remove('show');
+    let p = 0;
+    mini.textContent = 'Converting & Transferring (0%)';
+    const t = setInterval(() => {
+      p = Math.min(p + 15, 100);
+      mini.textContent = `Converting & Transferring (${p}%)`;
+      if(p === 100){
+        clearInterval(t);
+        change.disabled = false; change.classList.remove('busy');
+        mini.textContent = '';
+        ok.classList.remove('hide'); ok.classList.add('show');
+        setTimeout(() => ok.classList.add('hide'), 6000);
+      }
+    }, 400);
   });
 
-  function openRepo(){
-    if (window.__TAURI__ && __TAURI__.shell) __TAURI__.shell.open('https://github.com/tirodz/CMF-Ringtone-Tool');
+  document.getElementById('retry').onclick = () => {
+    err.classList.add('hide');
+    setTimeout(() => { err.classList.remove('show'); err.classList.remove('hide'); }, 300);
+    change.click();
+  };
+
+  // ---------- placeholders for later views ----------
+  function soon(){
+    err.classList.remove('hide'); err.classList.add('show');
+    err.querySelector('p').innerHTML = 'This page is mocked —<br>real content lands with the backend.';
   }
 
-  // ----- window controls (borderless) -----
+  // ---------- window + shell hooks ----------
+  function openRepo(){
+    try { __TAURI__.shell.open('https://github.com/tirodz/CMF-Ringtone-Tool'); } catch {}
+  }
   try {
     const w = __TAURI__.window.getCurrentWindow();
     document.getElementById('min').onclick = () => w.minimize();
+    document.getElementById('max').onclick = () => w.toggleMaximize();
     document.getElementById('close').onclick = () => w.close();
+    document.getElementById('disconnect').onclick = () => __TAURI__.invoke('ping');
   } catch {
-    document.getElementById('min').onclick = document.getElementById('close').onclick = () => {};
+    document.getElementById('disconnect').onclick = () => {
+      err.classList.remove('hide'); err.classList.add('show');
+      err.querySelector('p').innerHTML = 'Mock: disconnect lands with<br>the BLE integration.';
+    };
   }
 </script>
 </body>
