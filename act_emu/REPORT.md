@@ -77,11 +77,11 @@ experiments; nothing is assumed.
 |---|-------|---------|----------|
 | 0 | 1 | LSP MA-prediction mode (0: 0.88/0.5, 1: 0.5/0.5) | DVD107/108 tables + DVD158 disasm |
 | 1-5 | 7/8/7/7/7 | LSP split-VQ 3+3+3+3+4 (16th-order LPC) | DVD113/112/111/110/109 + DVD158 |
-| 6 | 9 | sf0 pitch (adaptive codebook) | field sensitivity |
+| 6 | 9 | sf0 pitch (adaptive codebook lag) | oracle-measured field→lag map |
 | 7 | 4 | sf0 pitch gain (≈ linear) | f15-style calibration |
 | 8-12 | 9×5 | sf0 fixed codebook, 2 pulses/track, tracks at samples 0-4 | empirical pulse_map (512 values/field) |
 | 13 | 5 | sf0 codebook gain (log, DVD116 interp) | DVD157 disasm + gain_cal sweep |
-| 14 | 6 | sf1 pitch | — |
+| 14 | 6 | sf1 pitch (fractional offset around sf0's lag) | oracle-measured |
 | 15 | 4 | sf1 pitch gain (16911 + 1024·v measured) | empirical sweep |
 | 16-20 | 9×5 | sf1 fixed codebook (tracks 0-4 of samples 80-159) | empirical pulse_map |
 | 21 | 5 | sf1 codebook gain | gain_cal sweep |
@@ -119,10 +119,16 @@ Each 9-bit field = 2 pulses in one of 5 tracks (track bases 0-4 within the
    deviation tracked exactly like the real decoder.
 3. Residual via the exact Levinson LPC; 5 codebook fields per subframe from
    residual peaks through the empirical pulse map.
-4. Gains via calibration tables + optional closed-loop refinement through the
-   emulated original decoder (snapshot/restore per frame).
-5. Pitch currently disabled (pitch gain = 0) — the field→lag map is measured
-   but too noisy to use reliably yet; tonal content is carried by the LSP.
+4. Pitch (adaptive codebook) ENABLED: candidate lags from normalized residual
+   autocorrelation (fractional via parabolic interpolation); sf0 field chosen
+   through the measured inverse lag map, sf1 as a 6-bit offset around sf0's
+   realized integer lag; pitch gain from the correlation strength. With the
+   oracle attached, candidate lags are chosen by actual decoded waveform SNR,
+   plus a pitch-continuity prior that keeps the lag close to the previous
+   frame's realized lag (prevents harmonic mis-lock over long sequences).
+5. Gains via calibration tables + closed-loop refinement through the emulated
+   original decoder (snapshot/restore per frame): coordinate descent over the
+   fixed-codebook, pitch and gain fields against true decoded SNR.
 
 ### Test results (test_encoder.py — ALL PASS)
 
@@ -135,44 +141,31 @@ Each 9-bit field = 2 pulses in one of 5 tracks (track bases 0-4 within the
 | 3 s duration | 300 frames, stable |
 | ring1 re-encode | decodes cleanly |
 
-Known limitation (honest): waveform-level SNR is still negative for tonal
-content because pitch tracking is off (phase alignment); the spectral
-envelope and level are correct. Next milestone: calibrate the pitch
-field→lag map and enable the adaptive codebook path — that is the remaining
-quality blocker.
+Honest status: the adaptive codebook is enabled end-to-end and tones are now
+carried by the pitch path (positive SNR, FFT-exact dominant frequencies; see
+tests/). The oracle path is the quality path; the oracle-less fallback is a
+fast preview (conservative gains, no closed-loop tuning).
 
-### What remains genuinely unknown (the pitch/adaptive codebook)
+### Pitch / adaptive codebook — RECOVERED
 
-Documented but NOT resolved in this session (honest status, no approximations
-shipped as fact):
+The previously-unknown pitch path is now pinned down by locked-step oracle
+measurement (decode each candidate field value with state snapshot/restore):
 
-- **f6 (9-bit) / f14 (6-bit) field → lag mapping**: not pinned down. Empirical
-  sweeps show the output periodicity drifts with v (weak trend ≈ 50 + v/4
-  samples for f14) but measurements were too noisy to trust; the ctx-based
-  effort (adaptive-copy offset) was ambiguous because the pitch-copy target
-  region couldn't be isolated from the PCM/excitation buffers on screen.
-- **Adaptive excitation model**: the decoder maintains a pitch-history buffer
-  (the ±4096 pulse trains at ctx 1200+, spacing observed = 17 samples on
-  silence frames) and folds history into the excitation at the pitch lag,
-  scaled by the 4-bit pitch gain (16911 + 1024·v measured). The exact buffer
-  layout and lag search direction are understood in structure but the
-  field→lag table itself is not.
-- **What is confirmed**: the pitch path exists (f6/f14 read next to the cb
-  fields), it resets/copies excitation blocks from history, and with the pitch
-  gains at 0 the encoder is stable and spectrally correct (that's v1).
-
-### What to try next (concrete plan, not yet done)
-
-1. Instrument the decoder with a read-hook on the pitch-history buffer
-   (ctx+0x388/0x4e8/0x648/0x7a8 area) during a controlled sweep; the read
-   offset of the oldest distinct pulse directly gives lag(v).
-2. Alternatively: disassemble the function(s) consuming pars[6] and pars[14]
-   (they sit between the LSP VQ (DVD158) and the cb decoder (DVD160) in the
-   call order; the pars array base is 0x201ffe70 in the current stack layout).
-3. Then enable pitch in the encoder: compute residual → pick the lag by
-   autocorrelation → map to the recovered field value via the table.
-
-## Reproduction
+- **f6 (9-bit) → lag**: two regimes, measured per-value against the realized
+  decoded periodicity: v < 390 → lag ≈ 29 + (v + 2)/3 (fractional thirds);
+  v ≥ 390 → lag = v - 230 (integer lags 160..281). Inverse implemented as
+  `sf0_field_for_lag()` with neighbour search; `realized_lag_sf0()` gives the
+  decoder's effective fractional lag.
+- **f14 (6-bit) → sf1 lag**: fractional offset around sf0's realized integer
+  lag: base + (v + 2)/3 - 1 (v ≤ 61), else lag0_int + 1 — i.e. classic
+  fractional pitch-delta coding, sf1 anchored to the same frame's sf0.
+- **Pitch history / adaptive excitation**: the decoder folds its excitation
+  history at the realized lag, scaled by the 4-bit pitch gain
+  (16911 + 1024·v measured); the encoder seeds the gain from the candidate's
+  correlation strength and lets the closed-loop refinement tune it.
+- **Continuity**: candidate selection adds a prior for staying within ~1.5
+  samples of the previous frame's realized lag, which removed the long-sequence
+  harmonic drift seen with pure per-frame SNR choice.
 
 ## Reproduction
 
@@ -245,8 +238,23 @@ are byte-identical, and the new ring1.act decodes error-free through the
 original emulated decoder.
 
 Tools: `cmf_shell.py` (recon client), `cmf_flash_plan.py` (window/checksum/command
-planner). Remaining physical step: run RECON to obtain PBASE and confirm the
-shell commands are enabled on the live watch (read-only).
+planner), `ble_ringtone.py` (backup/preflight/write/restore manager, all layout
+values from the `fw_registry.py` compatibility registry), `tests/test_ble_mock.py`
+(deterministic mocked-transport replay of the entire flow, including failure
+injection and unsupported-firmware refusal). Remaining physical step: run
+RECON to obtain PBASE and confirm the shell commands are enabled on the live
+watch (read-only). The full manual on-device procedure is in
+`docs/HARDWARE.md`.
+
+### Ringtone test trigger — status: unsupported/unknown
+
+No verified shell command exists that makes the watch play a ringtone. The
+firmware strings `jx_ring_player` and `btcall_ring` belong to the
+incoming-call flow (`tts_manager_play()` -> media_player, ACT_TYPE), not to a
+standalone "play file" command, and nothing in the debug shell command tables
+(@0x1f130c / @0x1f1f28) maps to them. Until an on-device experiment shows
+otherwise, post-write verification is limited to read-back checks plus a real
+incoming call. Documented as unsupported/unknown — not claimed as working.
 
 ### Safety assessment
 

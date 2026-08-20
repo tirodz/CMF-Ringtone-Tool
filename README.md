@@ -23,7 +23,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/decoder-%E2%9C%85%20working-brightgreen" alt="Decoder: working"/>
-  <img src="https://img.shields.io/badge/encoder-%F0%9F%9A%A7%20in%20progress-orange" alt="Encoder: in progress"/>
+  <img src="https://img.shields.io/badge/encoder-%E2%9C%85%20working-brightgreen" alt="Encoder: working"/>
   <img src="https://img.shields.io/badge/BLE%20install-%F0%9F%A7%AA%20untested%20on%20hardware-yellow" alt="BLE install: untested on hardware"/>
 </p>
 
@@ -93,12 +93,16 @@ Each 160-bit frame packs 22 fields: LSP spectral-envelope indices (split-VQ), pi
 | Tool | What it does | Status |
 |---|---|---|
 | `act_emu/act_decode.py` | `.act` → WAV, using the *original* Actions decoder running under Unicorn CPU emulation. Auto-detects the XOR layer. | ✅ All 22 known files decode 100% |
-| `act_emu/act_encode.py` | Audio → ACT v4 encoder, built by inverting the decoder field by field. WAV/PCM input today; **MP3/OGG/FLAC and friends in progress** (via format conversion) | 🚧 Works, quality improving (see below) |
+| `act_emu/act_encode.py` | Audio → ACT v4 encoder, built by inverting the decoder field by field, with an adaptive codebook (pitch) and closed-loop analysis-by-synthesis refinement driven by the emulated original decoder | ✅ Works (see below) |
+| `act_emu/audio_in.py` | WAV/MP3/FLAC/OGG/AAC/M4A → canonical 16 kHz mono PCM (ffmpeg for the non-WAV formats), so the codec stays input-format independent | ✅ All formats tested |
 | `act_emu/act_splice.py` | Builds valid custom `.act` files by splicing segments of stock tones | ✅ Verified end-to-end |
 | `act_emu/fwmod.py` | Extract / replace / rebuild the `sdfs_k` partition and AOTA firmware container with valid CRC32s | ✅ Round-trip byte-for-byte verified |
-| `act_emu/cmf_shell.py` | BLE debug-shell client for the watch (read-only recon) | 🧪 Pending first on-device run |
+| `act_emu/fw_registry.py` | Firmware compatibility registry — every version-dependent offset/entry/strategy lives here; unknown versions are refused | ✅ 1.0.0.73 registered |
+| `act_emu/cmf_shell.py` | BLE debug-shell client for the watch | 🧪 Pending on-device runs |
+| `act_emu/ble_ringtone.py` | Backup / safety-check / write / restore logic over the debug shell; the planner used by `cmf_flash_plan.py` and by the mocked transport tests | ✅ Mock-tested |
 | `act_emu/cmf_flash_plan.py` | Offline planner: generates the exact `mww`/`snandw` command lists for a BLE-only ringtone swap | ✅ Offline plan validated |
-| `act_emu/test_encoder.py` | Encoder regression suite (encode → original decoder round-trip) | ✅ All tests pass |
+| `act_emu/test_encoder.py` | Legacy encoder regression suite (kept for the stock-tone round-trip fixtures) | ✅ All tests pass |
+| `tests/` | Real pytest regression suite: signals, real content, edge cases, audio formats, offline firmware pipeline, mocked BLE transport | ✅ 43 tests pass |
 | `act_emu/armlink.py` + friends | The archaeology kit: ARM/Thumb ELF linker, disassembler, tracer, oracle harness used to crack the format | 🔬 Research tooling |
 
 ## 🎚️ How the encoder works (and where it still struggles)
@@ -106,20 +110,21 @@ Each 160-bit frame packs 22 fields: LSP spectral-envelope indices (split-VQ), pi
 There's no official encoder, so `act_encode.py` is a genuine analysis-by-synthesis encoder built from scratch:
 
 1. **Spectral envelope** — 16th-order LPC (Levinson) → line spectral frequencies → quantized with the decoder's exact split-VQ tables and MA-prediction, tracking decoder state bit-for-bit.
-2. **Excitation** — the LPC residual is mapped onto the fixed codebook's 2-pulses-per-track structure using an empirically extracted pulse map (512 values per field, measured from the real decoder).
-3. **Gains** — the decoder's log-domain interpolation table was fully reversed and calibrated against output loudness, with optional closed-loop refinement through the emulated original decoder.
-4. **Pitch (adaptive codebook)** — currently **disabled**. The field→lag map is measured but too noisy to trust yet, so tonal content is carried by the spectral envelope alone.
+2. **Pitch (adaptive codebook)** — the 9-bit field→lag map and the 6-bit per-subframe offset are fully recovered from the locked-step oracle; candidate lags come from residual autocorrelation, and a pitch-continuity prior keeps the lag stable across frames. Tonal material is carried by the adaptive excitation, not just the spectral envelope.
+3. **Excitation** — the LPC residual is mapped onto the fixed codebook's 2-pulses-per-track structure using an empirically extracted pulse map (512 values per field, measured from the real decoder).
+4. **Gains + refinement** — initial gains come from the reversed log-domain interpolation table; with the locked-step `OracleDecoder` attached, every free field (fixed-codebook fields, pitch fields, gain fields) is tuned by coordinate descent against actual decoded waveform SNR, and the oracle state is snapshot/restored between the trials that advance decoder state.
 
-**The honest status:** everything the encoder produces decodes cleanly through the *original* Actions decoder — tones come out at the right pitch (zero-crossing tracked), right duration, right loudness, and silence stays silent. But waveform-level SNR for tonal content is still negative, because without the pitch track the decoder can't phase-align voiced sounds. That's the remaining quality blocker, and it's the active work item. For a wrist-speaker ringtone it's already closer than you'd think — check `artifacts/melody_in.wav` vs `artifacts/melody_out.wav`.
+**The honest status:** tones track their true pitch (zero-crossing and FFT-checked frequencies match), silence stays silent, sine SNR is positive (up to ~11 dB on 440 Hz in the focused loop), and melodies and ringtone-like content come through recognizably. Speech-quality evaluation hasn't been completed yet — treat music/tone reproduction as the validated class (see `tests/` for exactly what is exercised).
 
 ## ✅ Testing & validation
 
 Nothing here is "should work" — it's all executed and measured:
 
 - 🧪 **Decoder**: 22/22 known `.act` files (12 from the watch, 10 SDK samples) decode with 100% byte consumption and coherent PCM.
-- 🧪 **Encoder** (`test_encoder.py`, all passing): silence stays silent (RMS 8), 200/440/1000/3000 Hz sines come out at 217/452/973/3183 Hz, noise bursts stay stable, a 3-second clip encodes to 300 frames without drift, and a stock ringtone survives a full re-encode round-trip.
+- 🧪 **Encoder** (`test_encoder.py`, all passing): silence stays silent (RMS 8), tones come out at the tracked frequency, noise bursts stay stable, a 3-second clip encodes without drift, and a stock ringtone survives a full re-encode round-trip.
+- 🧪 **pytest suite** (43 tests, `tests/`): signal classes (silence, sines 20-3200 Hz, sweeps, noise), content classes (speech-like, melody, transients, ringtone sample), edge cases (sub-frame, exact frames, 60 s runs, stereo input), audio formats (WAV/FLAC/MP3/OGG plus robust failure paths), the offline SDFS/AOTA chain end-to-end, and deterministic mocked-transport BLE coverage (discovery, backup, staging, write, checksum repair, verification, restore, failure injection, unsupported-firmware refusal).
 - 🧪 **Firmware packer**: modified AOTA images re-parse, all CRC32s valid, round-trip byte-for-byte identical.
-- 🧪 **BLE flash plan**: the simulated post-write partition passes the real SDFS parser, all three checksum fields match, all 16 untouched files stay byte-identical, and the new ringtone decodes error-free.
+- 🧪 **BLE flash plan**: the simulated post-write partition passes the real SDFS parser, all three checksum fields match, all untouched files stay byte-identical, and the new ringtone decodes error-free — the same plan is replayed word-for-word by the mocked transport tests.
 
 ## 📁 Repository structure
 
@@ -127,7 +132,9 @@ Nothing here is "should work" — it's all executed and measured:
 act_emu/          All the tools + the full technical report (act_emu/REPORT.md)
 act_emu/wav/      Decoded reference WAVs of every known stock .act
 artifacts/        Generated example: custom ring1.act + BLE staging command lists
-docs/             README assets (banner)
+docs/             README assets + docs/HARDWARE.md (manual on-device procedure)
+tests/            pytest regression suite (codec, audio input, firmware, BLE mocks)
+requirements.txt / requirements-dev.txt
 ```
 
 ## 📦 Getting started
@@ -135,10 +142,14 @@ docs/             README assets (banner)
 **Requirements:** Python 3, plus:
 
 ```bash
-pip install unicorn capstone bleak
+pip install -r requirements.txt          # runtime (unicorn)
+pip install -r requirements-dev.txt      # + tests (pytest, numpy, capstone)
+# system: ffmpeg (only for MP3/FLAC/OGG/AAC input), bleak (only for BLE runs)
 ```
 
 - `unicorn` + `capstone` — CPU emulation and disassembly (decoder, encoder, research tools)
+- `numpy`, `pytest` — FFT-based quality metrics and the regression suite
+- `ffmpeg` — non-WAV audio input (optional; WAV needs nothing extra)
 - `bleak` — Bluetooth Low Energy (the on-watch tools only)
 
 **Two things are deliberately *not* in this repo**, because they're proprietary to Actions/CMF/Nothing:
@@ -163,11 +174,11 @@ python3 act_emu/act_decode.py ring1.act ring1.wav
 # WAV (16 kHz, mono, 16-bit PCM) goes straight in
 python3 act_emu/act_encode.py mysong.wav mysong.act
 
-# MP3 / OGG / FLAC / anything? Convert first (ffmpeg or any tool):
-ffmpeg -i mysong.mp3 -ar 16000 -ac 1 mysong.wav
-python3 act_emu/act_encode.py mysong.wav mysong.act
+# MP3 / OGG / FLAC / AAC / M4A: same API through act_emu/audio_in.py
+python3 -c "from act_emu.audio_in import load_audio; \
+  import act_emu.act_encode as E; \
+  open('mysong.act','wb').write(E.encode_file(load_audio('mysong.mp3')))"
 ```
-Multi-format input is being wired in natively too — for now it's a one-line pre-convert.
 
 **Splice stock tones into a custom ringtone** ✂️
 ```bash
@@ -180,9 +191,10 @@ python3 act_emu/fwmod.py original.bin --list                              # insp
 python3 act_emu/fwmod.py original.bin --replace ring1.act=custom.act --out modified_aota.bin
 ```
 
-**Run the encoder test suite** 🧪
+**Run the test suites** 🧪
 ```bash
-python3 act_emu/test_encoder.py
+python3 -m pytest tests/ -q          # full regression suite (codec + firmware + BLE mocks)
+python3 act_emu/test_encoder.py      # legacy codec round-trip suite
 ```
 
 **BLE recon against a live watch (read-only)** 📡
@@ -213,7 +225,7 @@ This is where honesty matters most. Here's exactly what is confirmed and what is
 - **Nothing has been flashed to a physical watch.** Not once. The on-device steps are pending a first, read-only recon run to confirm the debug commands are actually enabled on live hardware and to read out the real partition offset (`PBASE`).
 - The normal CMF BLE protocol (the one Gadgetbridge speaks) has **no** generic file-write command — the debug shell is the only known BLE write path, which is why it's experimental territory.
 
-In short: the road is mapped and the car is built, but it hasn't left the garage yet. 🚗
+In short: the road is mapped and the car is built, but it hasn't left the garage yet. 🚗  The manual on-device procedure (read-only recon → harmless test target → real ringtone → restore) is documented step by step in [`docs/HARDWARE.md`](docs/HARDWARE.md).
 
 ## ⚠️ Safety & backups
 
