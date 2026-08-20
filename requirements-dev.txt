@@ -1,0 +1,5 @@
+# Development / test dependencies
+-r requirements.txt
+pytest>=8.0
+numpy>=1.26        # FFT-based metrics in the test suite
+capstone>=5.0      # static disassembly scripts (xref*.py, disasm.py)

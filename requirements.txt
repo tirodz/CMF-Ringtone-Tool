@@ -1,0 +1,10 @@
+# CMF Ringtone Tool - runtime dependencies
+# codec emulation (original Actions decoder used as encode-side oracle)
+unicorn>=2.1.4
+
+# Optional, system-level: ffmpeg is required only for non-WAV audio input
+# (MP3/FLAC/OGG/AAC/M4A).  Plain PCM WAV works with the standard library.
+
+# Optional, only for live BLE access (act_emu/cmf_shell.py recon/write):
+# bleak>=0.22
+# pycryptodome>=3.19   (only for full pairing; recon works without it)

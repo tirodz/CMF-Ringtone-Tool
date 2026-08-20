@@ -442,11 +442,21 @@ class Encoder:
         cb1 = place_pulses(res[80:160])
         # 5. gains from RMS ratio (calibrated tables)
         cal = load_gain_cal()
+        preview = self.oracle is None
+
         def gain_for(resseg, sf):
-            target = (sum(x*x for x in resseg) / len(resseg)) ** 0.5
-            if cal is None or target < 1:
+            if cal is None:
                 return 16
-            # pulse excitation unit energy ~ 4096 per pulse; estimate gain needed
+            target = (sum(x*x for x in resseg) / len(resseg)) ** 0.5
+            if target < 1:
+                return 0 if preview else 16
+            if preview:
+                # unit-gain excitation rms: 5 pulses x 4096 over 80 samples
+                # ~ 1024; excitation rms ~= residual rms (energy preservation).
+                # Conservative by design: the preview path must never blow up.
+                return gain_field_for(target / 1024.0, cal, sf)
+            # oracle path: the raw-rms seed is a starting point for closed-loop
+            # refinement, which tunes the field by waveform SNR.
             return gain_field_for(target, cal, sf)
         g0 = gain_for(res[0:80], 0)
         g1 = gain_for(res[80:160], 1)
@@ -566,10 +576,30 @@ class Encoder:
         return fields
 
 
-def encode_file(samples, oracle=None):
+# headroom target for peak normalization: the decoder's postfilter can
+# overshoot the coded waveform, so full-scale inputs are scaled down a bit.
+NORMALIZE_PEAK = 30000
+
+
+def normalize(samples, peak=NORMALIZE_PEAK):
+    """Peak-normalize with clipping protection; silence passes through."""
+    if not samples:
+        return list(samples)
+    mx = max(abs(x) for x in samples)
+    if mx == 0:
+        return list(samples)
+    if mx <= peak:
+        return list(samples)
+    g = peak / mx
+    return [max(-32768, min(32767, int(round(x * g)))) for x in samples]
+
+
+def encode_file(samples, oracle=None, do_normalize=True):
     """samples: list of ints (16kHz mono) -> raw v2 stream bytes (e1 d3 + frames)."""
     enc = Encoder(oracle)
     out = bytearray(b'\xe1\xd3')
+    if do_normalize:
+        samples = normalize(samples)
     n = len(samples) // 160
     for i in range(n):
         fr, _ = enc.encode_frame(samples[i*160:(i+1)*160])
@@ -579,12 +609,9 @@ def encode_file(samples, oracle=None):
 
 if __name__ == '__main__':
     import wave, struct as st
+    from oracle import OracleDecoder
     w = wave.open(sys.argv[1], 'rb')
     pcm = st.unpack('<%dh' % w.getnframes(), w.readframes(w.getnframes()))
-    enc = Encoder()
-    out = bytearray(b'\xe1\xd3')
-    for i in range(len(pcm) // 160):
-        fr, fields = enc.encode_frame(pcm[i*160:(i+1)*160])
-        out += fr
+    out = encode_file(pcm, oracle=OracleDecoder())
     open(sys.argv[2], 'wb').write(out)
     print(f'encoded {len(pcm)//160} frames -> {sys.argv[2]}')

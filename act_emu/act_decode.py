@@ -28,6 +28,11 @@ def deobfuscate(data: bytes) -> bytes:
     return bytes(b ^ XOR_KEY[i % 2] for i, b in enumerate(data))
 
 
+def obfuscate(data: bytes) -> bytes:
+    """Inverse of deobfuscate (XOR is symmetric): raw stream -> on-flash form."""
+    return bytes(b ^ XOR_KEY[i % 2] for i, b in enumerate(data))
+
+
 def decode(data: bytes):
     """Decode ACT bitstream. Returns (pcm_s16le_bytes, n_frames) or None on open failure."""
     mu = Uc(UC_ARCH_ARM, UC_MODE_THUMB)
@@ -87,7 +92,8 @@ def decode(data: bytes):
             mu.reg_write(UC_ARM_REG_R0, len(chunk))
             mu.reg_write(UC_ARM_REG_PC, mu.reg_read(UC_ARM_REG_LR))
 
-    mu.hook_add(UC_HOOK_CODE, hook)
+    for addr in sorted(list(stub_addr) + [READFN & ~1]):
+        mu.hook_add(UC_HOOK_CODE, hook, begin=addr, end=addr)
 
     def call(addr, r0, r1=0, r2=0, r3=0, cnt=5000000):
         mu.reg_write(UC_ARM_REG_SP, STACK_TOP)
