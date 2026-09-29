@@ -105,3 +105,8 @@ def test_wav_fallback_is_called_once(tmp_path, monkeypatch):
     monkeypatch.setattr(audio_in, "_try_wav_fallback", fake_fallback)
     assert audio_in.load_audio(path) == [1, 2, 3]
     assert len(calls) == 1
+
+
+def test_directory_is_not_audio_file(tmp_path):
+    with pytest.raises(audio_in.AudioError):
+        audio_in.load_audio(tmp_path)
