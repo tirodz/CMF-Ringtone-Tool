@@ -115,3 +115,17 @@ def test_directory_is_not_audio_file(tmp_path):
 def test_encoder_cli_requires_input_and_output():
     import act_encode
     assert act_encode.main([]) == 2
+
+
+def test_decoder_cli_reports_usage_without_arguments(capsys):
+    import act_decode
+    assert act_decode.main([]) == 2
+    assert "usage:" in capsys.readouterr().err
+
+
+def test_decoder_cli_rejects_empty_input(tmp_path, capsys):
+    import act_decode
+    path = tmp_path / "empty.act"
+    path.write_bytes(b"")
+    assert act_decode.main([str(path)]) == 1
+    assert "too short" in capsys.readouterr().err

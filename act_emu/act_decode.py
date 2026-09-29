@@ -124,18 +124,32 @@ def decode(data: bytes):
     return bytes(pcm), nframes
 
 
-def main():
-    if len(sys.argv) < 2:
-        print(__doc__)
-        sys.exit(1)
-    src = sys.argv[1]
-    dst = sys.argv[2] if len(sys.argv) > 2 else os.path.splitext(src)[0] + '.wav'
-    data = open(src, 'rb').read()
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if not argv or len(argv) > 2:
+        print("usage: act_decode.py INPUT.act [OUTPUT.wav]", file=sys.stderr)
+        return 2
+
+    src = argv[0]
+    dst = argv[1] if len(argv) == 2 else os.path.splitext(src)[0] + '.wav'
+
+    try:
+        with open(src, 'rb') as f:
+            data = f.read()
+    except OSError as exc:
+        print(f"decode failed: cannot read {src!r}: {exc}", file=sys.stderr)
+        return 1
+
+    if len(data) < 2:
+        print("decode failed: input is too short to contain an ACT header", file=sys.stderr)
+        return 1
+
     raw = deobfuscate(data)
     res = decode(raw)
     if not res:
-        print('decode failed: not an ACT v2/v4 stream')
-        sys.exit(1)
+        print('decode failed: not an ACT v2/v4 stream', file=sys.stderr)
+        return 1
+
     pcm, nframes = res
     with wave.open(dst, 'wb') as w:
         w.setnchannels(1)
@@ -144,7 +158,8 @@ def main():
         w.writeframes(pcm)
     print(f'{src}: {nframes} frames, {len(pcm)//2} samples '
           f'({len(pcm)/2/16000:.2f}s) -> {dst}')
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())
