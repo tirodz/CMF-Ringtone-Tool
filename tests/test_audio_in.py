@@ -129,3 +129,24 @@ def test_decoder_cli_rejects_empty_input(tmp_path, capsys):
     path.write_bytes(b"")
     assert act_decode.main([str(path)]) == 1
     assert "too short" in capsys.readouterr().err
+
+
+def test_encoder_cli_reports_missing_input(capsys, tmp_path):
+    import act_encode
+    output = tmp_path / "out.act"
+    assert act_encode.main([str(tmp_path / "missing.wav"), str(output)]) == 1
+    assert "cannot read" in capsys.readouterr().err
+
+
+def test_encoder_cli_reports_output_error(capsys, tmp_path):
+    import wave
+    import act_encode
+    source = tmp_path / "empty.wav"
+    with wave.open(str(source), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(b"")
+    output = tmp_path / "missing" / "out.act"
+    assert act_encode.main([str(source), str(output)]) == 1
+    assert "cannot write" in capsys.readouterr().err
