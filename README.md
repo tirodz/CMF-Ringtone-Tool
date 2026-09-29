@@ -50,7 +50,7 @@ The CMF Watch Pro 2 (Nothing's budget-friendly smartwatch) comes with a handful 
 So this project did the fun thing: it took the format apart, byte by byte, until it gave up its secrets. The result is a small, honest toolchain that can:
 
 - 🔓 **Decode** any `.act` ringtone back into a normal WAV you can listen to
-- 🎚️ **Encode** your own audio (WAV today, MP3/OGG/FLAC support in progress) into a real `.act` file
+- 🎚️ **Encode** your own audio (WAV/MP3/FLAC/OGG/AAC/M4A) into a real `.act` file
 - ✂️ **Splice** existing tones together into new combinations
 - 📦 **Repack** the watch's firmware image with a replaced ringtone
 - 📡 **Install** it over Bluetooth — no disassembly, no debug cables (currently being validated)
