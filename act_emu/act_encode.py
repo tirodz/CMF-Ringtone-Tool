@@ -619,12 +619,21 @@ def main(argv=None):
     import wave, struct as st
     from oracle import OracleDecoder
 
-    with wave.open(argv[0], 'rb') as w:
-        pcm = st.unpack('<%dh' % w.getnframes(), w.readframes(w.getnframes()))
+    try:
+        with wave.open(argv[0], 'rb') as w:
+            pcm = st.unpack('<%dh' % w.getnframes(), w.readframes(w.getnframes()))
+    except (OSError, wave.Error) as exc:
+        print(f"encode failed: cannot read {argv[0]!r}: {exc}", file=sys.stderr)
+        return 1
 
     out = encode_file(pcm, oracle=OracleDecoder())
-    with open(argv[1], 'wb') as f:
-        f.write(out)
+    try:
+        with open(argv[1], 'wb') as f:
+            f.write(out)
+    except OSError as exc:
+        print(f"encode failed: cannot write {argv[1]!r}: {exc}", file=sys.stderr)
+        return 1
+
     print(f'encoded {len(pcm)//160} frames -> {argv[1]}')
     return 0
 
