@@ -151,11 +151,16 @@ def main(argv=None):
         return 1
 
     pcm, nframes = res
-    with wave.open(dst, 'wb') as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(16000)
-        w.writeframes(pcm)
+    try:
+        with wave.open(dst, 'wb') as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(16000)
+            w.writeframes(pcm)
+    except (OSError, wave.Error) as exc:
+        print(f"decode failed: cannot write {dst!r}: {exc}", file=sys.stderr)
+        return 1
+
     print(f'{src}: {nframes} frames, {len(pcm)//2} samples '
           f'({len(pcm)/2/16000:.2f}s) -> {dst}')
     return 0
