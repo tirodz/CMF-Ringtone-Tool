@@ -30,8 +30,9 @@ def load_audio(path):
     """Decode + normalize an audio file to 16 kHz mono s16 PCM (list[int])."""
     if not isinstance(path, (str, os.PathLike)) or not os.path.exists(path):
         raise AudioError(f'file not found: {path!r}')
-    if _try_wav_fallback(path) is not None:
-        return _try_wav_fallback(path)
+    wav_samples = _try_wav_fallback(path)
+    if wav_samples is not None:
+        return wav_samples
     if _FFMPEG is None:
         raise AudioError(
             f'{path}: only PCM WAV is supported without ffmpeg; install ffmpeg '
