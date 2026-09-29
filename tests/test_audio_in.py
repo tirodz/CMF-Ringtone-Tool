@@ -110,3 +110,8 @@ def test_wav_fallback_is_called_once(tmp_path, monkeypatch):
 def test_directory_is_not_audio_file(tmp_path):
     with pytest.raises(audio_in.AudioError):
         audio_in.load_audio(tmp_path)
+
+
+def test_encoder_cli_requires_input_and_output():
+    import act_encode
+    assert act_encode.main([]) == 2

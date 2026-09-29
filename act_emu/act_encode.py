@@ -610,11 +610,24 @@ def encode_file(samples, oracle=None, do_normalize=True):
     return bytes(out)
 
 
-if __name__ == '__main__':
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if len(argv) != 2:
+        print("usage: act_encode.py INPUT.wav OUTPUT.act", file=sys.stderr)
+        return 2
+
     import wave, struct as st
     from oracle import OracleDecoder
-    w = wave.open(sys.argv[1], 'rb')
-    pcm = st.unpack('<%dh' % w.getnframes(), w.readframes(w.getnframes()))
+
+    with wave.open(argv[0], 'rb') as w:
+        pcm = st.unpack('<%dh' % w.getnframes(), w.readframes(w.getnframes()))
+
     out = encode_file(pcm, oracle=OracleDecoder())
-    open(sys.argv[2], 'wb').write(out)
-    print(f'encoded {len(pcm)//160} frames -> {sys.argv[2]}')
+    with open(argv[1], 'wb') as f:
+        f.write(out)
+    print(f'encoded {len(pcm)//160} frames -> {argv[1]}')
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
