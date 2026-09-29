@@ -150,3 +150,14 @@ def test_encoder_cli_reports_output_error(capsys, tmp_path):
     output = tmp_path / "missing" / "out.act"
     assert act_encode.main([str(source), str(output)]) == 1
     assert "cannot write" in capsys.readouterr().err
+
+
+def test_decoder_cli_reports_output_error(capsys, tmp_path, monkeypatch):
+    import act_decode
+    monkeypatch.setattr(act_decode, "deobfuscate", lambda data: data)
+    monkeypatch.setattr(act_decode, "decode", lambda data: (b"\x00\x00", 1))
+    source = tmp_path / "sample.act"
+    source.write_bytes(b"\xe1\xd3")
+    output = tmp_path / "missing" / "out.wav"
+    assert act_decode.main([str(source), str(output)]) == 1
+    assert "cannot write" in capsys.readouterr().err
