@@ -91,3 +91,17 @@ def test_very_short(tmp_path):
             w.setframerate(16000)
             w.writeframes(st.pack('<10h', *([2000] * 10)))
         helpers.roundtrip(audio_in.load_audio(str(tmp_path / 't.wav')))
+
+
+def test_wav_fallback_is_called_once(tmp_path, monkeypatch):
+    path = tmp_path / "sample.wav"
+    path.write_bytes(b"placeholder")
+    calls = []
+
+    def fake_fallback(value):
+        calls.append(value)
+        return [1, 2, 3]
+
+    monkeypatch.setattr(audio_in, "_try_wav_fallback", fake_fallback)
+    assert audio_in.load_audio(path) == [1, 2, 3]
+    assert len(calls) == 1
