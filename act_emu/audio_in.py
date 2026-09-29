@@ -28,7 +28,7 @@ _FFMPEG = shutil.which('ffmpeg')
 
 def load_audio(path):
     """Decode + normalize an audio file to 16 kHz mono s16 PCM (list[int])."""
-    if not isinstance(path, (str, os.PathLike)) or not os.path.exists(path):
+    if not isinstance(path, (str, os.PathLike)) or not os.path.isfile(path):
         raise AudioError(f'file not found: {path!r}')
     wav_samples = _try_wav_fallback(path)
     if wav_samples is not None:
